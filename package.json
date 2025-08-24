@@ -3,6 +3,6 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@vercel/kv": "latest"
+    "redis": "^4.6.13"
   }
 }

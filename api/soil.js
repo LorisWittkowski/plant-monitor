@@ -1,17 +1,19 @@
+// api/soil.js
 import { createClient } from "redis";
 
-// Redis-Client einmalig pro Lambda-Container initialisieren (Serverless-sicher)
-let redisPromise;
+// ---- Redis client (optional) ----
+let redisPromise = null;
 function getRedis() {
+  if (!process.env.REDIS_URL) return null; // Storage optional
   if (!redisPromise) {
     const client = createClient({ url: process.env.REDIS_URL });
-    client.on("error", (err) => console.error("Redis error:", err));
+    client.on("error", (e) => console.error("Redis error:", e));
     redisPromise = client.connect().then(() => client);
   }
   return redisPromise;
 }
 
-// robuster JSON-Parser (kompatibel mit ArduinoHttpClient)
+// ---- robust JSON parser (ArduinoHttpClient safe) ----
 async function readJson(req) {
   if (req.body && typeof req.body === "object") return req.body;
   const chunks = [];
@@ -22,7 +24,7 @@ async function readJson(req) {
 }
 
 export default async function handler(req, res) {
-  // CORS (praktisch fürs Debuggen)
+  // CORS ok
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -31,26 +33,50 @@ export default async function handler(req, res) {
   const sensorId = (req.query.sensorId || "soil-1").toString();
   const keyLatest = `soil:${sensorId}:latest`;
 
-  const redis = await getRedis();
-
   if (req.method === "GET") {
-    const raw = await redis.get(keyLatest);
-    if (!raw) return res.status(204).end(); // noch keine Daten
-    return res.status(200).json(JSON.parse(raw));
+    try {
+      const clientP = getRedis();
+      if (!clientP) return res.status(204).end(); // kein Storage -> noch nichts
+      const client = await clientP;
+      const raw = await client.get(keyLatest);
+      if (!raw) return res.status(204).end();
+      return res.status(200).json(JSON.parse(raw));
+    } catch (e) {
+      console.error("GET soil error:", e);
+      return res.status(500).json({ error: "server_error_get" });
+    }
   }
 
   if (req.method === "POST") {
-    const { raw, token } = await readJson(req);
+    try {
+      const { raw, token } = await readJson(req);
 
-    if (process.env.INGEST_TOKEN && token !== process.env.INGEST_TOKEN) {
-      return res.status(401).json({ error: "unauthorized" });
+      // Token check (klare 401 bei mismatch)
+      if (process.env.INGEST_TOKEN && token !== process.env.INGEST_TOKEN) {
+        return res.status(401).json({ error: "unauthorized_token" });
+      }
+
+      // raw validieren (klare 422 statt 400)
+      const r = Number(raw);
+      if (!Number.isFinite(r)) {
+        return res.status(422).json({ error: "raw_numeric_required" });
+      }
+
+      const payload = { raw: r, at: new Date().toISOString() };
+
+      let stored = false;
+      const clientP = getRedis();
+      if (clientP) {
+        const client = await clientP;
+        await client.set(keyLatest, JSON.stringify(payload));
+        stored = true;
+      }
+
+      return res.status(200).json({ ok: true, stored });
+    } catch (e) {
+      console.error("POST soil error:", e);
+      return res.status(500).json({ error: "server_error_post" });
     }
-    const r = Number(raw);
-    if (!Number.isFinite(r)) return res.status(400).json({ error: "raw numeric required" });
-
-    const payload = { raw: r, at: new Date().toISOString() };
-    await redis.set(keyLatest, JSON.stringify(payload));
-    return res.status(200).json({ ok: true });
   }
 
   res.setHeader("Allow", ["GET", "POST"]);
