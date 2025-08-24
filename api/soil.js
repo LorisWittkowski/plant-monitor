@@ -1,6 +1,17 @@
-import { kv } from "@vercel/kv";
+import { createClient } from "redis";
 
-// robuster JSON-Parser (funktioniert mit ArduinoHttpClient)
+// Redis-Client einmalig pro Lambda-Container initialisieren (Serverless-sicher)
+let redisPromise;
+function getRedis() {
+  if (!redisPromise) {
+    const client = createClient({ url: process.env.REDIS_URL });
+    client.on("error", (err) => console.error("Redis error:", err));
+    redisPromise = client.connect().then(() => client);
+  }
+  return redisPromise;
+}
+
+// robuster JSON-Parser (kompatibel mit ArduinoHttpClient)
 async function readJson(req) {
   if (req.body && typeof req.body === "object") return req.body;
   const chunks = [];
@@ -11,35 +22,34 @@ async function readJson(req) {
 }
 
 export default async function handler(req, res) {
-  // CORS (hilfreich bei lokalen Tests, schadet nicht in Prod)
+  // CORS (praktisch fürs Debuggen)
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(204).end();
 
-  // ein optionaler sensorId-Query-Param; wenn weggelassen → "soil-1"
   const sensorId = (req.query.sensorId || "soil-1").toString();
+  const keyLatest = `soil:${sensorId}:latest`;
+
+  const redis = await getRedis();
 
   if (req.method === "GET") {
-    const latest = await kv.get(`soil:${sensorId}:latest`);
-    // Falls noch nie ein Wert kam → 204 (No Content)
-    if (!latest) return res.status(204).end();
-    return res.status(200).json(latest);
+    const raw = await redis.get(keyLatest);
+    if (!raw) return res.status(204).end(); // noch keine Daten
+    return res.status(200).json(JSON.parse(raw));
   }
 
   if (req.method === "POST") {
-    const body = await readJson(req);
-    const { raw, token } = body || {};
+    const { raw, token } = await readJson(req);
 
     if (process.env.INGEST_TOKEN && token !== process.env.INGEST_TOKEN) {
       return res.status(401).json({ error: "unauthorized" });
     }
-
     const r = Number(raw);
     if (!Number.isFinite(r)) return res.status(400).json({ error: "raw numeric required" });
 
     const payload = { raw: r, at: new Date().toISOString() };
-    await kv.set(`soil:${sensorId}:latest`, payload);
+    await redis.set(keyLatest, JSON.stringify(payload));
     return res.status(200).json({ ok: true });
   }
 
