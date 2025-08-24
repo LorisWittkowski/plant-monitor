@@ -3,106 +3,33 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Soil • Monitor</title>
+  <title>Soil • Minimal</title>
   <link rel="preload" href="assets/style.css" as="style">
   <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">Soil ▸ Monitor</div>
-    <div class="status"><span id="liveDot" class="dot"></span><span id="status">offline</span></div>
-  </header>
-
-  <main class="layout">
+  <main class="wrap">
     <section class="card">
-      <div class="title-row">
-        <h1>Bodenfeuchte</h1>
-        <div class="muted" id="sensorMeta">—</div>
-      </div>
+      <h1>Bodenfeuchte (RAW)</h1>
 
-      <div class="bar bar-grid" aria-label="Bodenfeuchte in Prozent">
+      <div class="bar" aria-label="Visualisierung">
         <div id="fill" class="bar-fill"></div>
       </div>
 
-      <div class="metrics">
-        <div class="metric">
-          <div class="label">Feuchte</div>
-          <div id="value" class="value">—%</div>
-        </div>
+      <div class="row">
         <div class="metric">
           <div class="label">RAW</div>
-          <div id="raw" class="value small">—</div>
+          <div id="raw" class="value">—</div>
         </div>
         <div class="metric">
           <div class="label">Zuletzt</div>
-          <div id="timestamp" class="value small">—</div>
+          <div id="ts" class="value small">—</div>
+        </div>
+        <div class="metric">
+          <div class="label">Status</div>
+          <div id="status" class="value small muted">offline</div>
         </div>
       </div>
-    </section>
-
-    <section class="card">
-      <h2>Sensor</h2>
-      <div class="grid2">
-        <label class="stack">
-          <span class="label">Sensor wählen/setzen</span>
-          <div class="row gap">
-            <select id="sensorSelect"></select>
-            <input id="sensorId" type="text" placeholder="z. B. soil-1" />
-            <button id="useSensor" class="btn">Benutzen</button>
-            <button id="refreshSensors" class="btn ghost">Aktualisieren</button>
-          </div>
-        </label>
-        <label class="stack">
-          <span class="label">Name (optional)</span>
-          <div class="row gap">
-            <input id="sensorName" type="text" placeholder="Fensterbank links" />
-            <button id="saveName" class="btn ghost">Speichern</button>
-          </div>
-        </label>
-      </div>
-
-      <div class="row gap top">
-        <label class="stack">
-          <span class="label">Admin Token (für POST/Calib)</span>
-          <input id="token" type="password" placeholder="••••••" />
-        </label>
-        <button id="saveToken" class="btn">Token merken</button>
-      </div>
-
-      <div class="info muted" id="configInfo">Kalibrierung: —</div>
-    </section>
-
-    <section class="card">
-      <h2>Kalibrierung</h2>
-      <p class="muted">Erst <b>DRY</b> (trocken), dann <b>WET</b> (nass). Wir speichern die RAW-Werte.</p>
-      <div class="grid3">
-        <div class="stack">
-          <div class="label">DRY (RAW)</div>
-          <div class="row gap">
-            <input id="dryInput" type="number" placeholder="z. B. 3200" />
-            <button id="useCurrentDry" class="btn ghost">Aktuell übernehmen</button>
-          </div>
-        </div>
-        <div class="stack">
-          <div class="label">WET (RAW)</div>
-          <div class="row gap">
-            <input id="wetInput" type="number" placeholder="z. B. 1200" />
-            <button id="useCurrentWet" class="btn ghost">Aktuell übernehmen</button>
-          </div>
-        </div>
-        <div class="stack">
-          <div class="label">Aktion</div>
-          <div class="row gap">
-            <button id="saveCalib" class="btn">Kalibrierung speichern</button>
-            <button id="resetCalib" class="btn danger">Zurücksetzen</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Verlauf (letzte 10)</h2>
-      <ul id="history" class="history"></ul>
     </section>
   </main>
 

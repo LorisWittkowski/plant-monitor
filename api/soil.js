@@ -1,60 +1,48 @@
 import { kv } from "@vercel/kv";
 
-function clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
-function toPercent(raw, dry, wet){
-  if (typeof dry !== 'number' || typeof wet !== 'number' || dry === wet) return null;
-  const p = 100 * (raw - dry) / (wet - dry);
-  return clamp(p, 0, 100);
+// robuster JSON-Parser (funktioniert mit ArduinoHttpClient)
+async function readJson(req) {
+  if (req.body && typeof req.body === "object") return req.body;
+  const chunks = [];
+  for await (const ch of req) chunks.push(ch);
+  const raw = Buffer.concat(chunks).toString("utf8").trim();
+  if (!raw) return {};
+  try { return JSON.parse(raw); } catch { return {}; }
 }
 
-export default async function handler(req, res){
-  if (req.method === 'GET'){
-    const sensorId = req.query.sensorId || null;
-    const limit = Number(req.query.limit || 10);
+export default async function handler(req, res) {
+  // CORS (hilfreich bei lokalen Tests, schadet nicht in Prod)
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.status(204).end();
 
-    if (!sensorId){
-      const ids = await kv.smembers('soil:sensors');
-      const sensors = [];
-      for (const id of ids){
-        const latest = await kv.get(`soil:${id}:latest`);
-        const cfg = await kv.get(`soil:${id}:config`);
-        sensors.push({ id, name: cfg?.name || null, calibrated: !!(cfg?.rawDry!=null && cfg?.rawWet!=null), latest });
-      }
-      return res.json({ sensors });
-    }
+  // ein optionaler sensorId-Query-Param; wenn weggelassen → "soil-1"
+  const sensorId = (req.query.sensorId || "soil-1").toString();
 
+  if (req.method === "GET") {
     const latest = await kv.get(`soil:${sensorId}:latest`);
-    const config = await kv.get(`soil:${sensorId}:config`);
-    const arr = await kv.lrange(`soil:${sensorId}:history`, 0, Math.max(0, limit - 1));
-    const history = (arr || []).map(s => JSON.parse(s));
-    return res.json({ sensorId, latest, config, history });
+    // Falls noch nie ein Wert kam → 204 (No Content)
+    if (!latest) return res.status(204).end();
+    return res.status(200).json(latest);
   }
 
-  if (req.method === 'POST'){
-    try{
-      const { sensorId, raw, token } = req.body || {};
-      if (!sensorId) return res.status(400).json({ error: 'sensorId required' });
-      if (process.env.INGEST_TOKEN && token !== process.env.INGEST_TOKEN)
-        return res.status(401).json({ error: 'unauthorized' });
+  if (req.method === "POST") {
+    const body = await readJson(req);
+    const { raw, token } = body || {};
 
-      const r = Number(raw);
-      if (!Number.isFinite(r)) return res.status(400).json({ error: 'raw numeric required' });
-
-      await kv.sadd('soil:sensors', sensorId);
-
-      const cfg = await kv.get(`soil:${sensorId}:config`);
-      const percent = (cfg && cfg.rawDry!=null && cfg.rawWet!=null) ? toPercent(r, cfg.rawDry, cfg.rawWet) : null;
-      const payload = { raw: r, percent: percent ?? null, at: new Date().toISOString() };
-
-      await kv.set(`soil:${sensorId}:latest`, payload);
-      await kv.lpush(`soil:${sensorId}:history`, JSON.stringify(payload));
-      await kv.ltrim(`soil:${sensorId}:history`, 0, 99); // 100 Einträge behalten
-      return res.json({ ok: true });
-    }catch(e){
-      return res.status(500).json({ error: 'server error' });
+    if (process.env.INGEST_TOKEN && token !== process.env.INGEST_TOKEN) {
+      return res.status(401).json({ error: "unauthorized" });
     }
+
+    const r = Number(raw);
+    if (!Number.isFinite(r)) return res.status(400).json({ error: "raw numeric required" });
+
+    const payload = { raw: r, at: new Date().toISOString() };
+    await kv.set(`soil:${sensorId}:latest`, payload);
+    return res.status(200).json({ ok: true });
   }
 
-  res.setHeader('Allow', ['GET','POST']);
-  res.status(405).end('Method Not Allowed');
+  res.setHeader("Allow", ["GET", "POST"]);
+  return res.status(405).end("Method Not Allowed");
 }
