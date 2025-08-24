@@ -1,78 +1,21 @@
-const fill = document.getElementById("fill");
-const valueEl = document.getElementById("value");
-const tsEl = document.getElementById("timestamp");
-const liveDot = document.getElementById("liveDot");
-const statusEl = document.getElementById("status");
-const demoToggle = document.getElementById("demoToggle");
-const demoSlider = document.getElementById("demoSlider");
-const demoVal = document.getElementById("demoVal");
-
-
-let lastOk = 0;
-let demoMode = false;
-
-
-function updateUI(percent, isoTs) {
-const clamped = Math.max(0, Math.min(100, percent));
-fill.style.width = clamped + "%";
-valueEl.textContent = clamped.toFixed(0) + "%";
-tsEl.textContent = isoTs ? new Date(isoTs).toLocaleString() : "—";
-document.documentElement.style.setProperty("--accent",
-clamped < 25 ? "#f59e0b" : (clamped < 60 ? "#6ee7b7" : "#60a5fa")
-);
-}
-
-
-function updateLive() {
-const alive = (Date.now() - lastOk) < 10_000; // 10s seit letztem OK
-liveDot.classList.toggle("live", alive);
-statusEl.textContent = alive ? "live" : "offline";
-}
-
-
-async function fetchMoisture() {
-if (demoMode) {
-const m = Number(demoSlider.value);
-updateUI(m, new Date().toISOString());
-lastOk = Date.now();
-return updateLive();
-}
-try {
-// Platzhalter: später echte API wie /api/soil
-// Aktuell: wenn keine API existiert, fallback auf Demo-Mode
-const res = await fetch("/api/soil", { cache: "no-store" });
-if (res.ok) {
-const data = await res.json();
-const m = Number(data.moisture);
-if (Number.isFinite(m)) {
-updateUI(m, data.at);
-lastOk = Date.now();
-}
-} else if (res.status === 404 || res.status === 204) {
-// Kein Backend vorhanden → Demo aktivieren
-demoToggle.checked = true; setDemo(true);
-}
-} catch (_) {
-// still bleiben
-}
-updateLive();
-}
-
-
-function setDemo(on) {
-demoMode = on;
-demoSlider.disabled = !on;
-demoVal.textContent = demoSlider.value + "%";
-}
-
-
-demoToggle.addEventListener("change", (e) => setDemo(e.target.checked));
-demoSlider.addEventListener("input", () => {
-demoVal.textContent = demoSlider.value + "%";
-if (demoMode) updateUI(Number(demoSlider.value), new Date().toISOString());
-});
-
-
-fetchMoisture();
-setInterval(fetchMoisture, 3000);
-setInterval(updateLive, 1000);
+const els = { fill: q('#fill'), value: q('#value'), raw: q('#raw'), ts: q('#timestamp'), liveDot: q('#liveDot'), status: q('#status'), sensorSelect: q('#sensorSelect'), sensorId: q('#sensorId'), sensorName: q('#sensorName'), useSensor: q('#useSensor'), refreshSensors: q('#refreshSensors'), saveName: q('#saveName'), token: q('#token'), saveToken: q('#saveToken'), dryInput: q('#dryInput'), wetInput: q('#wetInput'), useCurrentDry: q('#useCurrentDry'), useCurrentWet: q('#useCurrentWet'), saveCalib: q('#saveCalib'), resetCalib: q('#resetCalib'), history: q('#history'), sensorMeta: q('#sensorMeta'), configInfo: q('#configInfo') };
+let state = { sensorId: localStorage.getItem('sensorId') || 'soil-1', token: localStorage.getItem('ingestToken') || '', lastOk: 0, latest: null, config: null };
+function q(s){ return document.querySelector(s); }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function getCSS(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function setAccent(p){ let a = p<20? getCSS('--warn'): (p<60? getCSS('--accent'): getCSS('--wet')); document.documentElement.style.setProperty('--accent', a); }
+function updateBar(percent){ const p = clamp(percent,0,100); els.fill.style.width = p+'%'; els.value.textContent = p.toFixed(0)+'%'; setAccent(p); }
+function updateMeta(raw, ts){ els.raw.textContent = (raw ?? '—'); els.ts.textContent = ts ? new Date(ts).toLocaleString() : '—'; }
+function updateLive(){ const alive = (Date.now()-state.lastOk) < 10000; els.liveDot.classList.toggle('live', alive); els.status.textContent = alive? 'live':'offline'; }
+async function fetchSensors(){ try{ const r = await fetch('/api/sensors'); const data = await r.json(); els.sensorSelect.innerHTML=''; data.sensors.forEach(s=>{ const o=document.createElement('option'); o.value=s.id; o.textContent=s.name||s.id; els.sensorSelect.appendChild(o); }); if(state.sensorId) els.sensorSelect.value = state.sensorId; }catch{} }
+async function fetchSoil(){ try{ const r = await fetch(`/api/soil?sensorId=${encodeURIComponent(state.sensorId)}&limit=10`, { cache:'no-store' }); if(!r.ok) return; const data = await r.json(); state.latest = data.latest; state.config = data.config; state.lastOk = Date.now(); if(state.latest){ updateBar(Number(state.latest.percent ?? 0)); updateMeta(state.latest.raw, state.latest.at); } els.sensorMeta.textContent = `${state.sensorId}${state.config && (state.config.name? ' · '+state.config.name:'')}`; if(state.config && (Number.isFinite(state.config.rawDry) || Number.isFinite(state.config.rawWet))){ els.configInfo.textContent = `Kalibrierung: DRY=${state.config.rawDry ?? '—'}, WET=${state.config.rawWet ?? '—'} (zuletzt: ${new Date(state.config.updatedAt).toLocaleString()})`; els.dryInput.value = state.config.rawDry ?? ''; els.wetInput.value = state.config.rawWet ?? ''; els.sensorName.value = state.config.name || ''; } else { els.configInfo.textContent = 'Kalibrierung: —'; } els.history.innerHTML=''; (data.history||[]).forEach(it=>{ const li=document.createElement('li'); li.innerHTML = `<span>${new Date(it.at).toLocaleTimeString()}</span><span>${it.raw} RAW</span><span>${(it.percent??0).toFixed(0)}%</span>`; els.history.appendChild(li); }); }catch{} updateLive(); }
+els.useSensor.onclick = ()=>{ const fromSelect=els.sensorSelect.value; const manual=els.sensorId.value.trim(); state.sensorId = manual || fromSelect || 'soil-1'; localStorage.setItem('sensorId', state.sensorId); fetchSoil(); };
+els.refreshSensors.onclick = fetchSensors;
+els.saveToken.onclick = ()=>{ state.token = els.token.value; localStorage.setItem('ingestToken', state.token); };
+els.saveName.onclick = async ()=>{ if(!state.sensorId) return; const body = { sensorId: state.sensorId, name: els.sensorName.value || null, token: state.token }; await fetch('/api/calibrate',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)}); fetchSoil(); };
+els.useCurrentDry.onclick = ()=>{ if(state.latest) els.dryInput.value = state.latest.raw; };
+els.useCurrentWet.onclick = ()=>{ if(state.latest) els.wetInput.value = state.latest.raw; };
+els.saveCalib.onclick = async ()=>{ const body = { sensorId: state.sensorId, rawDry: num(els.dryInput.value), rawWet: num(els.wetInput.value), token: state.token }; await fetch('/api/calibrate',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)}); fetchSoil(); };
+els.resetCalib.onclick = async ()=>{ const body = { sensorId: state.sensorId, reset: true, token: state.token }; await fetch('/api/calibrate',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)}); els.dryInput.value=''; els.wetInput.value=''; fetchSoil(); };
+function num(v){ const n=Number(v); return Number.isFinite(n)? n : null; }
+els.token.value = state.token; fetchSensors(); fetchSoil(); setInterval(fetchSoil, 3000); setInterval(updateLive, 1000);

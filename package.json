@@ -1,0 +1,1 @@
+{ "name": "plant-monitor", "private": true, "type": "module", "dependencies": { "@vercel/kv": "latest" } }
