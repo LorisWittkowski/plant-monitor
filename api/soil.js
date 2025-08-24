@@ -1,3 +1,4 @@
+// api/soil.js
 import { createClient } from "redis";
 
 // Redis client singleton
@@ -47,13 +48,13 @@ export default async function handler(req, res) {
     const [latestRaw, cfgRaw, list] = await Promise.all([
       r.get(keyLatest),
       r.get(keyConfig),
-      r.lrange(keyHistory, 0, Math.max(0, limit - 1))
+      r.lRange(keyHistory, 0, Math.max(0, limit - 1)) // ⬅️ camelCase
     ]);
     if (!latestRaw) return res.status(204).end();
 
     const latest = JSON.parse(latestRaw);
     const config = cfgRaw ? JSON.parse(cfgRaw) : null;
-    const history = (list || []).map(s => JSON.parse(s)).reverse(); // neuestes zuletzt für Charts
+    const history = (list || []).map(s => JSON.parse(s)).reverse(); // ältestes→neu
     return res.status(200).json({ sensorId, latest, config, history });
   }
 
@@ -71,14 +72,14 @@ export default async function handler(req, res) {
 
     const cfgRaw = await r.get(`soil:${id}:config`);
     const cfg = cfgRaw ? JSON.parse(cfgRaw) : null;
-    const percent = cfg?.rawDry != null && cfg?.rawWet != null
+    const percent = (cfg?.rawDry != null && cfg?.rawWet != null)
       ? toPercent(value, cfg.rawDry, cfg.rawWet) : null;
 
     const payload = { raw: value, percent, at: new Date().toISOString() };
     await Promise.all([
       r.set(`soil:${id}:latest`, JSON.stringify(payload)),
-      r.lpush(`soil:${id}:history`, JSON.stringify(payload)),
-      r.ltrim(`soil:${id}:history`, 0, 299) // max 300 Einträge
+      r.lPush(`soil:${id}:history`, JSON.stringify(payload)), // ⬅️ camelCase
+      r.lTrim(`soil:${id}:history`, 0, 299)                  // ⬅️ camelCase
     ]);
 
     return res.status(200).json({ ok: true });
