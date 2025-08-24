@@ -8,35 +8,103 @@
   <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <div class="title">
-        <h1>Soil Moisture</h1>
-        <span class="tag">dark · mono</span>
+  <header class="topbar">
+    <div class="brand">Soil ▸ Monitor</div>
+    <div class="status"><span id="liveDot" class="dot"></span><span id="status">offline</span></div>
+  </header>
+
+  <main class="layout">
+    <section class="card">
+      <div class="title-row">
+        <h1>Bodenfeuchte</h1>
+        <div class="muted" id="sensorMeta">—</div>
       </div>
 
-      <div class="bar bar-grid" aria-hidden="true">
+      <div class="bar bar-grid" aria-label="Bodenfeuchte in Prozent">
         <div id="fill" class="bar-fill"></div>
       </div>
 
-      <div class="row">
-        <span class="hint">0%</span>
-        <span id="value" class="value" aria-live="polite">—%</span>
-        <span class="hint">100%</span>
+      <div class="metrics">
+        <div class="metric">
+          <div class="label">Feuchte</div>
+          <div id="value" class="value">—%</div>
+        </div>
+        <div class="metric">
+          <div class="label">RAW</div>
+          <div id="raw" class="value small">—</div>
+        </div>
+        <div class="metric">
+          <div class="label">Zuletzt</div>
+          <div id="timestamp" class="value small">—</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Sensor</h2>
+      <div class="grid2">
+        <label class="stack">
+          <span class="label">Sensor wählen/setzen</span>
+          <div class="row gap">
+            <select id="sensorSelect"></select>
+            <input id="sensorId" type="text" placeholder="z. B. soil-1" />
+            <button id="useSensor" class="btn">Benutzen</button>
+            <button id="refreshSensors" class="btn ghost">Aktualisieren</button>
+          </div>
+        </label>
+        <label class="stack">
+          <span class="label">Name (optional)</span>
+          <div class="row gap">
+            <input id="sensorName" type="text" placeholder="Fensterbank links" />
+            <button id="saveName" class="btn ghost">Speichern</button>
+          </div>
+        </label>
       </div>
 
-      <div class="footer">
-        <div><span id="liveDot" class="dot"></span><span id="status">offline</span></div>
-        <div id="timestamp">—</div>
+      <div class="row gap top">
+        <label class="stack">
+          <span class="label">Admin Token (für POST/Calib)</span>
+          <input id="token" type="password" placeholder="••••••" />
+        </label>
+        <button id="saveToken" class="btn">Token merken</button>
       </div>
 
-      <div class="demo">
-        <label><input id="demoToggle" type="checkbox"> Demo-Modus aktivieren</label>
-        <input id="demoSlider" type="range" min="0" max="100" value="42" disabled>
-        <span id="demoVal">42%</span>
+      <div class="info muted" id="configInfo">Kalibrierung: —</div>
+    </section>
+
+    <section class="card">
+      <h2>Kalibrierung</h2>
+      <p class="muted">Erst <b>DRY</b> (trocken), dann <b>WET</b> (nass). Wir speichern die RAW-Werte.</p>
+      <div class="grid3">
+        <div class="stack">
+          <div class="label">DRY (RAW)</div>
+          <div class="row gap">
+            <input id="dryInput" type="number" placeholder="z. B. 3200" />
+            <button id="useCurrentDry" class="btn ghost">Aktuell übernehmen</button>
+          </div>
+        </div>
+        <div class="stack">
+          <div class="label">WET (RAW)</div>
+          <div class="row gap">
+            <input id="wetInput" type="number" placeholder="z. B. 1200" />
+            <button id="useCurrentWet" class="btn ghost">Aktuell übernehmen</button>
+          </div>
+        </div>
+        <div class="stack">
+          <div class="label">Aktion</div>
+          <div class="row gap">
+            <button id="saveCalib" class="btn">Kalibrierung speichern</button>
+            <button id="resetCalib" class="btn danger">Zurücksetzen</button>
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
+    </section>
+
+    <section class="card">
+      <h2>Verlauf (letzte 10)</h2>
+      <ul id="history" class="history"></ul>
+    </section>
+  </main>
 
   <script src="assets/app.js" defer></script>
 </body>
