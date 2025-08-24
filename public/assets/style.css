@@ -1,14 +1,57 @@
-:root{ --bg:#0b0d0f; --fg:#e6e6e6; --muted:#9aa0a6; --ring:#2a3037; --card:rgba(17,20,24,.75); --bar-bg:#1a1f24; --accent:#6ee7b7; }
+:root{
+  --bg:#0a0b10; --fg:#e9ecf1; --muted:#93a1b3; --ring:#202636;
+  --card:rgba(18,22,30,.75); --bar:#131722; --accent:#7cffe9; --accent2:#6a7bff; --danger:#ef4444;
+}
 *{box-sizing:border-box}
-html,body{height:100%;margin:0;background:radial-gradient(1000px 700px at 70% -10%, #0f1318 0%, var(--bg) 60%);color:var(--fg);font:16px/1.5 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;}
-.wrap{min-height:100%;display:grid;place-items:center;padding:24px}
-.card{width:100%;max-width:520px;background:var(--card);border:1px solid var(--ring);border-radius:16px;padding:18px 18px 16px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
-h1{font-size:18px;margin:0 0 12px}
-.bar{position:relative;width:100%;height:24px;background:var(--bar-bg);border:1px solid var(--ring);border-radius:999px;overflow:hidden}
-.bar-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),#60a5fa);transition:width 220ms ease}
-.row{display:flex;justify-content:space-between;gap:14px;margin-top:12px}
-.metric{display:flex;flex-direction:column;gap:4px}
-.label{font-size:12px;color:var(--muted)}
-.value{font-size:24px}
-.value.small{font-size:16px}
+html,body{height:100%;margin:0;color:var(--fg);
+  font:15px/1.5 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Courier New",monospace;
+  background: radial-gradient(900px 700px at 70% -10%, #0f1320 0%, var(--bg) 60%);}
+
+.halo{position:fixed;inset:-20%;background:
+  radial-gradient(600px 400px at 15% 20%, rgba(124,255,233,.10), transparent 60%),
+  radial-gradient(600px 400px at 85% 10%, rgba(106,123,255,.10), transparent 60%);}
+.wrap{max-width:980px;margin:0 auto;padding:24px}
+
+.header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px}
+.brand{font-weight:700;letter-spacing:.4px}
+.dot{color:var(--accent)}
+.sub{color:var(--muted)}
+
+.card{background:var(--card);border:1px solid var(--ring);border-radius:18px;padding:16px;margin-bottom:18px;
+  box-shadow:0 10px 30px rgba(0,0,0,.35);backdrop-filter: blur(8px);}
+.card.hero{display:grid;gap:12px}
+
+.value-stack{display:flex;align-items:end;justify-content:space-between}
+.value{font-size:52px;font-weight:700;letter-spacing:.6px;transition:transform 180ms ease}
+.value.bump{transform:scale(1.04)}
+.raw{color:var(--muted);font-size:13px}
+
+.bar{position:relative;height:20px;background:var(--bar);border:1px solid var(--ring);border-radius:999px;overflow:hidden}
+.bar-fill{height:100%;width:0%;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  filter: drop-shadow(0 0 10px rgba(124,255,233,.35));
+  transition:width 280ms cubic-bezier(.2,.8,.2,1)}
+
+.card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+h2{font-size:16px;margin:0}
+
+.btn{background:#121827;border:1px solid var(--ring);color:var(--fg);padding:8px 12px;border-radius:12px;cursor:pointer}
+.btn:hover{filter:brightness(1.06)}
+.btn.ghost{background:transparent}
+.btn.primary{border-color:#2849ff}
+.btn.danger{border-color:#7f1d1d;color:#f9caca}
+
 .muted{color:var(--muted)}
+
+.modal{border:none;background:transparent}
+.modal::backdrop{background:rgba(3,6,12,.6);backdrop-filter: blur(3px)}
+.modal-card{width:min(720px,92vw);background:var(--card);border:1px solid var(--ring);border-radius:16px}
+.modal-head,.modal-foot{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--ring)}
+.modal-foot{border-top:1px solid var(--ring);border-bottom:none}
+.modal-body{padding:14px}
+.icon.close{background:transparent;border:none;color:var(--muted);font-size:22px;cursor:pointer}
+.steps{margin:0;padding:0;list-style:none;display:grid;gap:14px}
+.step{padding:10px;border:1px dashed transparent;border-radius:12px}
+.step.active{border-color:#2a3550}
+.row{display:flex;gap:10px;align-items:center}
+input{flex:1;background:#0f1420;color:var(--fg);border:1px solid var(--ring);border-radius:10px;padding:8px 10px}
