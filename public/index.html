@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Soil • Monitor</title>
+  <link rel="preload" href="assets/style.css" as="style">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="title">
+        <h1>Soil Moisture</h1>
+        <span class="tag">dark · mono</span>
+      </div>
+
+      <div class="bar bar-grid" aria-hidden="true">
+        <div id="fill" class="bar-fill"></div>
+      </div>
+
+      <div class="row">
+        <span class="hint">0%</span>
+        <span id="value" class="value" aria-live="polite">—%</span>
+        <span class="hint">100%</span>
+      </div>
+
+      <div class="footer">
+        <div><span id="liveDot" class="dot"></span><span id="status">offline</span></div>
+        <div id="timestamp">—</div>
+      </div>
+
+      <div class="demo">
+        <label><input id="demoToggle" type="checkbox"> Demo-Modus aktivieren</label>
+        <input id="demoSlider" type="range" min="0" max="100" value="42" disabled>
+        <span id="demoVal">42%</span>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/app.js" defer></script>
+</body>
+</html>
