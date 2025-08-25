@@ -27,7 +27,6 @@ export default async function handler(req,res){
 
   const sensorId = (req.query.sensorId || "soil-1").toString();
   const keyProfile = `soil:${sensorId}:plant:profile`;
-
   const r = await redis();
 
   if (req.method === "GET") {

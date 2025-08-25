@@ -1,58 +1,53 @@
-// Config
+// ===== Config =====
 const POLL_MS = 3000;
 const RAW_MAX = 4095;
 const SENSOR_ID = "soil-1";
 const DEFAULT_RANGE = "1h"; // 1h | 24h | 7d
 
-// State
+// ===== State =====
 let latest = null, config = null, lastSeenAt = null, currentDisplayedPercent = null;
 let currentRange = DEFAULT_RANGE;
-let plantProfile = null, notes = [];
+let plantProfile = null;
 
-// DOM
+// ===== DOM =====
 const $ = s => document.querySelector(s);
 const els = {
-  // live
   value: $("#value"), raw: $("#raw"), ts: $("#ts"), fill: $("#fill"),
   chart: $("#chart"),
-  // header
-  calibBtn: $("#calibBtn"), themeToggle: $("#themeToggle"), themeIcon: $("#themeIcon"),
-  // calibration
-  modal: $("#calibModal"), dryInput: $("#dryInput"), wetInput: $("#wetInput"),
+  themeToggle: $("#themeToggle"), themeIcon: $("#themeIcon"),
+  calibBtn: $("#calibBtn"), modal: $("#calibModal"),
+  dryInput: $("#dryInput"), wetInput: $("#wetInput"),
   useDryNow: $("#useDryNow"), useWetNow: $("#useWetNow"),
-  prevStep: $("#prevStep"), nextStep: $("#nextStep"), saveCalib: $("#saveCalib"),
-  resetCalib: $("#resetCalib"),
-  // plant info
+  prevStep: $("#prevStep"), nextStep: $("#nextStep"), saveCalib: $("#saveCalib"), resetCalib: $("#resetCalib"),
   pi_name: $("#pi_name"), pi_species: $("#pi_species"), pi_location: $("#pi_location"), pi_pot: $("#pi_pot"), pi_note: $("#pi_note"),
-  saveInfo: $("#saveInfo"),
-  // notes
-  noteText: $("#noteText"), addNote: $("#addNote"), notesList: $("#notesList"),
+  saveInfo: $("#saveInfo")
 };
 
-// Theme
+// ===== Theme =====
 (function initTheme(){
   const saved = localStorage.getItem("theme");
   const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
   const theme = saved || (prefersDark ? "dark" : "light");
   document.documentElement.setAttribute("data-theme", theme);
-  $("#themeIcon").textContent = theme === "dark" ? "☾" : "☼";
+  els.themeIcon.textContent = theme === "dark" ? "☾" : "☼";
 })();
 els.themeToggle.onclick = () => {
   const cur = document.documentElement.getAttribute("data-theme");
   const next = cur === "dark" ? "light" : "dark";
   document.documentElement.setAttribute("data-theme", next);
   localStorage.setItem("theme", next);
-  $("#themeIcon").textContent = next === "dark" ? "☾" : "☼";
+  els.themeIcon.textContent = next === "dark" ? "☾" : "☼";
+  if (chart) chart.update(); // Linie zieht neue CSS-Farben
 };
 
-// Helpers
+// ===== Helpers =====
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 const asPercent = raw => {
   if (!config || config.rawDry==null || config.rawWet==null || config.rawDry===config.rawWet)
     return clamp((raw/RAW_MAX)*100,0,100);
   return clamp(100*(raw - config.rawDry)/(config.rawWet - config.rawDry),0,100);
 };
-const tweenValue = (from,to,ms=500) => {
+const tweenValue = (from,to,ms=450) => {
   const start = performance.now();
   const step = t => {
     const k = Math.min(1,(t-start)/ms);
@@ -63,7 +58,7 @@ const tweenValue = (from,to,ms=500) => {
   requestAnimationFrame(step);
 };
 
-// Live UI
+// ===== Live UI =====
 function updateLive(raw, atIso){
   const p = asPercent(raw);
   els.fill.style.width = p.toFixed(1) + "%";
@@ -75,10 +70,11 @@ function updateLive(raw, atIso){
   els.ts.textContent = new Date(atIso).toLocaleString();
 }
 
-// Chart
+// ===== Chart (minimal, keine Hover, mit Decimation) =====
 let chart;
-function cssVar(name, fallback){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback; }
-function initChart(){
+const cssVar = (name, fallback) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+
+function initChart() {
   const ctx = els.chart.getContext("2d");
   chart = new Chart(ctx, {
     type: "line",
@@ -89,76 +85,93 @@ function initChart(){
       fill: false,
       pointRadius: 0,
       segment: {
-        borderColor: ctx => {
-          const total = ctx.chart.data.datasets[0].data.length || 1;
-          const i = ctx.p0DataIndex ?? 0;
-          const fade = 0.2 + 0.8*(i/total);
-          const fg = cssVar('--fg','rgb(242,242,243)');
-          if (fg.startsWith('rgb(')) return fg.replace('rgb','rgba').replace(')',`,`+fade+`)`);
-          return `rgba(242,242,243,${fade})`;
+        borderColor: (c) => {
+          const ds = c.chart.data.datasets[0];
+          const total = ds.data.length || 1;
+          const i = c.p0DataIndex ?? 0;
+          const alpha = 0.25 + 0.75 * (i / total); // links transparenter → rechts deckender
+          const fg = cssVar('--fg', 'rgb(242,242,243)');
+          if (fg.startsWith('rgb(')) return fg.replace('rgb','rgba').replace(')',`,`+alpha+`)`);
+          return `rgba(242,242,243,${alpha})`;
         }
       }
     }]},
     options: {
-      responsive: true, maintainAspectRatio: false,
-      animation: { duration: 500, easing: "easeOutCubic" },
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 450, easing: "easeOutCubic" },
+      // keine Interaktion / Hover
+      events: [],
+      plugins: {
+        legend: { display: false },
+        tooltip: { enabled: false },
+        decimation: { enabled: true, algorithm: 'lttb', samples: 120 }
+      },
       scales: {
         x: { display: false },
         y: {
-          min: 0, max: 100, grid: { display: false },
-          ticks: {
-            color: cssVar('--muted','#9a9a9b'),
-            callback: v => v===0 ? "DRY" : v===100 ? "WET" : "",
-            font: { size: 12 }
-          },
-          border: { display: true, color: cssVar('--muted','#9a9a9b') }
+          min: 0, max: 100,
+          grid: { display: false },
+          ticks: { display: false },
+          border: { display: true, color: cssVar('--muted', '#9a9a9b') }
         }
       },
-      plugins: { legend: { display:false }, tooltip: { enabled:false } },
       layout: { padding: 6 }
     }
   });
 }
-function setSeries(points){
-  const data = points.map(p => p.percent ?? (p.raw/RAW_MAX*100));
-  chart.data.labels = data.map((_,i)=>i);
-  chart.data.datasets[0].data = data;
+
+// Serie setzen: streng zeitlich sortieren, cap (gegen „Abpfeifen“ & Überlänge)
+function setSeries(points) {
+  const norm = (points || [])
+    .map(p => ({
+      t: new Date(p.at || p.time || Date.now()).getTime(),
+      y: (p.percent != null ? p.percent : (p.raw / RAW_MAX * 100))
+    }))
+    .filter(p => Number.isFinite(p.t) && Number.isFinite(p.y))
+    .sort((a, b) => a.t - b.t);
+
+  const HARD_CAP = 1000;                    // obere sichtbare Grenze
+  const data = (norm.length > HARD_CAP) ? norm.slice(-HARD_CAP) : norm;
+
+  chart.data.labels = data.map(d => d.t);
+  chart.data.datasets[0].data = data.map(d => d.y);
   chart.update();
 }
 
-// Fetch series by range
-async function fetchSeries(range){
-  const r = await fetch(`/api/soil?sensorId=${encodeURIComponent(SENSOR_ID)}&range=${encodeURIComponent(range)}`, { cache:"no-store" });
-  if (r.status===204) { setSeries([]); return; }
+// Range vom Server holen (Server liefert bereits passende Dichte)
+async function fetchSeries(range) {
+  document.querySelectorAll('.range .btn').forEach(b => b.classList.toggle('active', b.dataset.range === range));
+  const r = await fetch(`/api/soil?sensorId=${encodeURIComponent(SENSOR_ID)}&range=${encodeURIComponent(range)}`, { cache: "no-store" });
+  if (r.status === 204) { setSeries([]); return; }
   const data = await r.json();
-  config = data.config || null;
-  latest = data.latest || null;
-  if (latest) updateLive(latest.raw, latest.at);
+
+  if (data.config) config = data.config;
+  if (data.latest) {
+    latest = data.latest;
+    updateLive(latest.raw, latest.at);
+  }
   setSeries(data.series || []);
 }
 
-// Poll latest for live value (independent of range)
+// separat: Live-Poll für Kopf & Graph-Refresh (leicht, nicht flooden)
 async function pollLatest(){
   const r = await fetch(`/api/soil?sensorId=${encodeURIComponent(SENSOR_ID)}&range=latest`, { cache:"no-store" });
   if (r.status!==200) return;
   const data = await r.json();
-  const nowAt = data.latest?.at;
+  if (!data.latest) return;
+  const nowAt = data.latest.at;
   if (nowAt && nowAt !== lastSeenAt) {
     lastSeenAt = nowAt;
     config = data.config || config;
     latest  = data.latest;
     updateLive(latest.raw, latest.at);
-    // auch Graph live updaten (rechter Rand)
+    // Graph nachladen (Server-seitig bereits verdichtet)
     await fetchSeries(currentRange);
   }
 }
 
-// Range buttons
-document.querySelectorAll('.range .btn').forEach(b=>{
-  b.onclick = async ()=>{ currentRange = b.dataset.range; await fetchSeries(currentRange); };
-});
-
-// Plant info
+// ===== Plant Info =====
 function fillInfoUI(){
   const p = plantProfile || {};
   els.pi_name.value = p.name || "";
@@ -189,39 +202,7 @@ async function savePlantProfile(){
   if (!r.ok) alert("Speichern fehlgeschlagen.");
 }
 
-// Notes
-function renderNotes(){
-  els.notesList.innerHTML = "";
-  (notes || []).forEach(n=>{
-    const li = document.createElement("li");
-    li.innerHTML = `<span>${n.text}<span class="meta"> · ${new Date(n.at).toLocaleString()}</span></span>
-                    <button class="del" data-id="${n.id}">Löschen</button>`;
-    els.notesList.appendChild(li);
-  });
-  els.notesList.querySelectorAll('.del').forEach(btn=>{
-    btn.onclick = async ()=>{
-      const id = btn.dataset.id;
-      const r = await fetch(`/api/notes?sensorId=${encodeURIComponent(SENSOR_ID)}&id=${encodeURIComponent(id)}`, { method:"DELETE" });
-      if (r.ok) { await fetchNotes(); } else alert("Löschen fehlgeschlagen.");
-    };
-  });
-}
-async function fetchNotes(){
-  const r = await fetch(`/api/notes?sensorId=${encodeURIComponent(SENSOR_ID)}`, { cache:"no-store" });
-  if (r.status===204){ notes=[]; renderNotes(); return; }
-  const data = await r.json();
-  notes = data.notes || [];
-  renderNotes();
-}
-async function addNote(){
-  const text = els.noteText.value.trim();
-  if (!text) return;
-  const r = await fetch("/api/notes", { method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({ sensorId: SENSOR_ID, text }) });
-  if (r.ok){ els.noteText.value=""; await fetchNotes(); } else alert("Notiz konnte nicht gespeichert werden.");
-}
-
-// Calibration
+// ===== Calibration =====
 function showStep(n){
   document.querySelectorAll(".modal .step").forEach(sec => sec.hidden = Number(sec.dataset.step)!==n);
   document.querySelectorAll(".steps-dots .dot").forEach(dot=>dot.classList.toggle("active", Number(dot.dataset.step)===n));
@@ -246,13 +227,14 @@ els.resetCalib.onclick = async()=>{
   await fetchSeries(currentRange);
 };
 
-// Events
+// ===== Events =====
+document.querySelectorAll('.range .btn').forEach(b=>{
+  b.onclick = async ()=>{ currentRange = b.dataset.range; await fetchSeries(currentRange); };
+});
 els.saveInfo.onclick = savePlantProfile;
-els.addNote.onclick = addNote;
 
-// Init
+// ===== Init =====
 initChart();
 fetchSeries(currentRange);
 setInterval(pollLatest, POLL_MS);
 fetchPlant();
-fetchNotes();

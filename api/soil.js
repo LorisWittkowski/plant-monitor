@@ -35,20 +35,22 @@ export default async function handler(req, res) {
   const r = await redis();
 
   const keyLatest    = `soil:${sensorId}:latest`;
-  const keyHistory   = `soil:${sensorId}:history`;   // kurze Historie (roh)
+  const keyHistory   = `soil:${sensorId}:history`;
   const keyConfig    = `soil:${sensorId}:config`;
 
-  // Aggregation (10 Min Fenster)
+  // 10-Min Agg
   const keyCurWin    = `soil:${sensorId}:agg10m:curWindow`;
   const keyCurSum    = `soil:${sensorId}:agg10m:sum`;
   const keyCurCnt    = `soil:${sensorId}:agg10m:cnt`;
-  const keyAgg10m    = `soil:${sensorId}:agg10m`;    // Liste von Einträgen
+  const keyAgg10m    = `soil:${sensorId}:agg10m`;
 
   if (req.method === "GET") {
-    const range = (req.query.range || "latest").toString(); // latest | 1h | 24h | 7d
+    const range = (req.query.range || "latest").toString();
 
-    // Immer config + latest laden
-    const [cfgRaw, latestRaw] = await Promise.all([ r.get(keyConfig), r.get(keyLatest) ]);
+    const [cfgRaw, latestRaw] = await Promise.all([
+      r.get(keyConfig),
+      r.get(keyLatest)
+    ]);
     const config = cfgRaw ? JSON.parse(cfgRaw) : null;
     const latest = latestRaw ? JSON.parse(latestRaw) : null;
 
@@ -58,15 +60,12 @@ export default async function handler(req, res) {
     }
 
     let series = [];
-
     if (range === "1h") {
-      // Nimm die feine Historie und filtere auf letzte Stunde
       const list = await r.lRange(keyHistory, 0, 2000);
       const until = Date.now() - 60*60*1000;
       series = (list || []).map(s => JSON.parse(s)).filter(p => new Date(p.at).getTime() >= until).reverse();
     } else {
-      // 24h / 7d → aggregierte Serie (10-Minuten-Mittel)
-      const list = await r.lRange(keyAgg10m, 0, 2000);
+      const list = await r.lRange(keyAgg10m, 0, 5000);
       const hours = range === "24h" ? 24 : 24*7;
       const until = Date.now() - hours*60*60*1000;
       series = (list || []).map(s => JSON.parse(s)).filter(p => new Date(p.at).getTime() >= until).reverse();
@@ -93,15 +92,14 @@ export default async function handler(req, res) {
     const now = Date.now();
     const payload = { raw: value, percent, at: new Date(now).toISOString() };
 
-    // Kurz-Historie
     await Promise.all([
       r.set(`soil:${id}:latest`, JSON.stringify(payload)),
       r.lPush(`soil:${id}:history`, JSON.stringify(payload)),
-      r.lTrim(`soil:${id}:history`, 0, 2000) // hält genug für ~1-2h bei hohem Takt
+      r.lTrim(`soil:${id}:history`, 0, 2000)
     ]);
 
-    // ── 10-Min Aggregation ──
-    const windowMs = 10 * 60 * 1000;                 // 10 Minuten
+    // 10-Min Aggregation
+    const windowMs = 10 * 60 * 1000;
     const curWindow = Math.floor(now / windowMs) * windowMs;
 
     const [storedWinRaw, sumRaw, cntRaw] = await Promise.all([
@@ -111,27 +109,25 @@ export default async function handler(req, res) {
     let sum = sumRaw ? Number(sumRaw) : 0;
     let cnt = cntRaw ? Number(cntRaw) : 0;
 
-    // wenn Fensterwechsel: schreibe vorheriges Fenster als Durchschnitt in Liste
     if (storedWin !== null && storedWin !== curWindow && cnt > 0) {
       const avg = sum / cnt;
       const entry = {
-        at: new Date(storedWin + windowMs/2).toISOString(), // Mitte des Fensters
+        at: new Date(storedWin + windowMs/2).toISOString(),
         rawAvg: avg,
         percent: (cfg?.rawDry!=null && cfg?.rawWet!=null) ? toPercent(avg, cfg.rawDry, cfg.rawWet) : null
       };
       await Promise.all([
         r.lPush(keyAgg10m, JSON.stringify(entry)),
-        r.lTrim(keyAgg10m, 0, 5000) // ca. 5000*10min ≈ 34 Tage
+        r.lTrim(keyAgg10m, 0, 5000)
       ]);
       sum = 0; cnt = 0;
     }
 
-    // Aktuelles Fenster akkumulieren
     sum += value; cnt += 1;
     await Promise.all([
       r.set(keyCurWin, String(curWindow)),
       r.set(keyCurSum, String(sum)),
-      r.set(keyCurCnt, String(cnt)),
+      r.set(keyCurCnt, String(cnt))
     ]);
 
     return res.status(200).json({ ok:true });

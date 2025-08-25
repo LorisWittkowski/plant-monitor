@@ -49,9 +49,9 @@
       </article>
     </section>
 
-    <!-- 3) Großer Graph -->
+    <!-- 3) Graph (kompakt, ohne Hover, keine Ecken-Labels) -->
     <section class="grid one">
-      <article class="card chart-card big">
+      <article class="card chart-card">
         <div class="card-head">
           <h2>Historie</h2>
           <div class="range">
@@ -60,25 +60,7 @@
             <button class="btn ghost" data-range="7d">7 Tage</button>
           </div>
         </div>
-        <div class="ylabels">
-          <span class="lbl top">WET</span>
-          <span class="lbl bot">DRY</span>
-        </div>
-        <canvas id="chart" height="340"></canvas>
-      </article>
-    </section>
-
-    <!-- 4) Notizen -->
-    <section class="grid one">
-      <article class="card notes">
-        <div class="card-head">
-          <h2>Notizen</h2>
-          <div class="note-add">
-            <input id="noteText" placeholder="Neue Notiz…" />
-            <button id="addNote" class="btn primary">Hinzufügen</button>
-          </div>
-        </div>
-        <ul id="notesList" class="notes-list"></ul>
+        <canvas id="chart" height="220" aria-label="Verlauf Bodenfeuchte"></canvas>
       </article>
     </section>
   </main>
@@ -86,20 +68,29 @@
   <!-- Kalibrierung -->
   <dialog id="calibModal" class="modal">
     <form method="dialog" class="modal-card" aria-labelledby="modalTitle">
-      <div class="steps-dots" aria-hidden="true"><span class="dot active" data-step="1"></span><span class="dot" data-step="2"></span></div>
-      <header class="modal-head"><h3 id="modalTitle">Kalibrierung</h3><button class="icon close" value="cancel" aria-label="Schließen">×</button></header>
+      <div class="steps-dots" aria-hidden="true">
+        <span class="dot active" data-step="1"></span><span class="dot" data-step="2"></span>
+      </div>
+      <header class="modal-head">
+        <h3 id="modalTitle">Kalibrierung</h3>
+        <button class="icon close" value="cancel" aria-label="Schließen">×</button>
+      </header>
       <div class="modal-body">
         <section class="step" data-step="1">
           <h4>Schritt 1 · Trocken (DRY)</h4>
           <p>Sensor trocken. Aktuellen RAW übernehmen oder manuell eintragen.</p>
-          <div class="row"><input id="dryInput" type="number" inputmode="numeric" placeholder="RAW trocken">
-            <button id="useDryNow" class="btn ghost" type="button">Aktuell übernehmen</button></div>
+          <div class="row">
+            <input id="dryInput" type="number" inputmode="numeric" placeholder="RAW trocken">
+            <button id="useDryNow" class="btn ghost" type="button">Aktuell übernehmen</button>
+          </div>
         </section>
         <section class="step" data-step="2" hidden>
           <h4>Schritt 2 · Nass (WET)</h4>
           <p>Sensor in Wasser. Aktuellen RAW übernehmen oder manuell eintragen.</p>
-          <div class="row"><input id="wetInput" type="number" inputmode="numeric" placeholder="RAW nass">
-            <button id="useWetNow" class="btn ghost" type="button">Aktuell übernehmen</button></div>
+          <div class="row">
+            <input id="wetInput" type="number" inputmode="numeric" placeholder="RAW nass">
+            <button id="useWetNow" class="btn ghost" type="button">Aktuell übernehmen</button>
+          </div>
         </section>
       </div>
       <footer class="modal-foot">
