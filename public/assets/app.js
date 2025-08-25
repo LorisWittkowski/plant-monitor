@@ -7,6 +7,7 @@ const DEFAULT_RANGE = "1h"; // 1h | 24h | 7d
 // ===== State =====
 let latest = null, config = null, lastSeenAt = null, currentDisplayedPercent = null;
 let currentRange = DEFAULT_RANGE;
+let plantProfile = null;
 
 // ===== DOM =====
 const $ = s => document.querySelector(s);
@@ -18,7 +19,10 @@ const els = {
   calibBtn: $("#calibBtn"), modal: $("#calibModal"),
   dryInput: $("#dryInput"), wetInput: $("#wetInput"),
   useDryNow: $("#useDryNow"), useWetNow: $("#useWetNow"),
-  prevStep: $("#prevStep"), nextStep: $("#nextStep"), saveCalib: $("#saveCalib"), resetCalib: $("#resetCalib")
+  prevStep: $("#prevStep"), nextStep: $("#nextStep"), saveCalib: $("#saveCalib"), resetCalib: $("#resetCalib"),
+  // Plant Info
+  pi_name: $("#pi_name"), pi_species: $("#pi_species"), pi_location: $("#pi_location"), pi_pot: $("#pi_pot"), pi_note: $("#pi_note"),
+  saveInfo: $("#saveInfo")
 };
 
 // ===== Theme =====
@@ -33,7 +37,7 @@ els.themeToggle.onclick = () => {
   const next = cur === "dark" ? "light" : "dark";
   document.documentElement.setAttribute("data-theme", next);
   localStorage.setItem("theme", next);
-  if (chart) chart.update(); // Chart übernimmt neue CSS-Farben
+  if (chart) chart.update();
 };
 
 // ===== Helpers =====
@@ -49,9 +53,7 @@ function updateLive(raw, atIso){
   const p = asPercent(raw);
   els.fill.style.width = p.toFixed(1) + "%";
   const show = Math.round(p);
-  if (currentDisplayedPercent == null) {
-    $("#value").textContent = show + "%";
-  } else if (Math.abs(currentDisplayedPercent - p) >= 1) {
+  if (currentDisplayedPercent == null || Math.abs(currentDisplayedPercent - p) >= 1) {
     $("#value").textContent = show + "%";
   }
   currentDisplayedPercent = p;
@@ -72,14 +74,14 @@ function initChart() {
       borderWidth: 2,
       tension: 0.35,
       fill: false,
-      pointRadius: 0,              // wird dynamisch gesetzt
+      pointRadius: 0,
       borderColor: () => cssVar('--fg-strong', '#222')
     }]},
     options: {
       responsive: true,
       maintainAspectRatio: false,
       animation: { duration: 400, easing: "easeOutCubic" },
-      events: [],                       // keine Hover/Marker
+      events: [],
       plugins: {
         legend: { display: false },
         tooltip: { enabled: false },
@@ -99,17 +101,13 @@ function initChart() {
   });
 }
 
-// Serie setzen: sortieren, Fallback, Punkte sichtbar machen wenn wenige
 function setSeries(points) {
   const norm = (points || [])
-    .map(p => ({
-      t: new Date(p.at || p.time || Date.now()).getTime(),
-      y: (p.percent != null ? p.percent : (p.raw / RAW_MAX * 100))
-    }))
+    .map(p => ({ t: new Date(p.at || p.time || Date.now()).getTime(),
+                 y: (p.percent != null ? p.percent : (p.raw / RAW_MAX * 100)) }))
     .filter(p => Number.isFinite(p.t) && Number.isFinite(p.y))
-    .sort((a, b) => a.t - b.t);
+    .sort((a,b)=>a.t-b.t);
 
-  // Fallback: wenn leer, aber latest vorhanden → einen Punkt zeichnen (als Marker)
   if (norm.length === 0 && latest) {
     const t = new Date(latest.at).getTime();
     const y = (latest.percent != null) ? latest.percent : (latest.raw / RAW_MAX * 100);
@@ -121,17 +119,13 @@ function setSeries(points) {
 
   chart.data.labels = data.map(d => d.t);
   chart.data.datasets[0].data = data.map(d => d.y);
-
-  // Sichtbarkeit: wenn < 2 Punkte → Marker zeigen (sonst sieht man nichts)
   chart.data.datasets[0].pointRadius = (data.length < 2) ? 3 : 0;
   chart.options.plugins.decimation.enabled = (data.length >= 200);
-
   chart.update();
 }
 
-// Range laden
 async function fetchSeries(range) {
-  els.rangeButtons().forEach(b=>{
+  document.querySelectorAll('.range .btn').forEach(b=>{
     const active = b.dataset.range === range;
     b.setAttribute("aria-selected", active ? "true" : "false");
   });
@@ -140,17 +134,11 @@ async function fetchSeries(range) {
     if (r.status === 204) { setSeries([]); return; }
     const data = await r.json();
     if (data.config) config = data.config;
-    if (data.latest) {
-      latest = data.latest;
-      updateLive(latest.raw, latest.at);
-    }
+    if (data.latest) { latest = data.latest; updateLive(latest.raw, latest.at); }
     setSeries(data.series || []);
-  } catch {
-    setSeries([]); // Fallback
-  }
+  } catch { setSeries([]); }
 }
 
-// Live poll
 async function pollLatest(){
   try {
     const r = await fetch(`/api/soil?sensorId=${encodeURIComponent(SENSOR_ID)}&range=latest`, { cache:"no-store" });
@@ -168,7 +156,68 @@ async function pollLatest(){
   } catch {}
 }
 
-// Calibration (wie gehabt, gekürzt)
+// ===== Plant Info: laden, speichern, leeren =====
+function fillInfoUI(){
+  const p = plantProfile || {};
+  els.pi_name.value     = p.name     ?? "";
+  els.pi_species.value  = p.species  ?? "";
+  els.pi_location.value = p.location ?? "";
+  els.pi_pot.value      = (p.potCm != null ? String(p.potCm) : "");
+  els.pi_note.value     = p.note     ?? "";
+}
+
+async function fetchPlant(){
+  try {
+    const r = await fetch(`/api/plant?sensorId=${encodeURIComponent(SENSOR_ID)}`, { cache:"no-store" });
+    if (r.status === 204) { plantProfile = null; fillInfoUI(); return; }
+    const data = await r.json();
+    plantProfile = data.profile || null;
+    fillInfoUI();
+  } catch { /* ignore */ }
+}
+
+function normalizeEmptyToNull(v) {
+  if (v == null) return null;
+  const t = (typeof v === "string") ? v.trim() : v;
+  if (t === "" || t === undefined) return null;
+  return t;
+}
+
+async function savePlantProfile(){
+  // Leere Eingaben -> null (löschen auf Server)
+  const body = {
+    sensorId: SENSOR_ID,
+    profile: {
+      name:     normalizeEmptyToNull(els.pi_name.value),
+      species:  normalizeEmptyToNull(els.pi_species.value),
+      location: normalizeEmptyToNull(els.pi_location.value),
+      potCm:    normalizeEmptyToNull(els.pi_pot.value ? Number(els.pi_pot.value) : null),
+      note:     normalizeEmptyToNull(els.pi_note.value)
+    }
+  };
+
+  // Wenn alles null ist, schicken wir es trotzdem – Server löscht dann den gesamten Key
+  els.saveInfo.disabled = true;
+  const oldLabel = els.saveInfo.textContent;
+  els.saveInfo.textContent = "Speichere…";
+  try {
+    const r = await fetch("/api/plant", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) throw new Error("save failed");
+    els.saveInfo.textContent = "Gespeichert ✓";
+    await fetchPlant(); // UI mit Serverzustand abgleichen
+  } catch(e) {
+    alert("Speichern fehlgeschlagen.");
+    els.saveInfo.textContent = oldLabel;
+  } finally {
+    setTimeout(()=>{ els.saveInfo.textContent = "Speichern"; els.saveInfo.disabled = false; }, 900);
+  }
+}
+
+// ===== Calibration (unverändert) =====
 function showStep(n){
   document.querySelectorAll(".modal .step").forEach(sec => sec.hidden = Number(sec.dataset.step)!==n);
   document.querySelectorAll(".steps-dots .dot").forEach(dot=>dot.classList.toggle("active", Number(dot.dataset.step)===n));
@@ -193,10 +242,11 @@ document.getElementById("resetCalib").onclick = async()=>{
   await fetchSeries(currentRange);
 };
 
-// Events
+// ===== Events & Init =====
 els.rangeButtons().forEach(b=>{ b.onclick = ()=>{ currentRange = b.dataset.range; fetchSeries(currentRange); }; });
+els.saveInfo.onclick = savePlantProfile;
 
-// Init
 initChart();
 fetchSeries(currentRange);
 setInterval(pollLatest, POLL_MS);
+fetchPlant();

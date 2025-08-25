@@ -25,7 +25,7 @@ export default async function handler(req,res){
   res.setHeader("Access-Control-Allow-Headers","Content-Type");
   if (req.method==="OPTIONS") return res.status(204).end();
 
-  const sensorId = (req.query.sensorId || "soil-1").toString();
+  const sensorId = (req.query.sensorId || req.body?.sensorId || "soil-1").toString();
   const keyProfile = `soil:${sensorId}:plant:profile`;
   const r = await redis();
 
@@ -37,10 +37,34 @@ export default async function handler(req,res){
   }
 
   if (req.method === "POST") {
-    const { profile } = await readJson(req);
-    const prev = await r.get(keyProfile);
-    const merged = { ...(prev ? JSON.parse(prev) : {}), ...(profile||{}), updatedAt: new Date().toISOString() };
-    await r.set(keyProfile, JSON.stringify(merged));
+    const { profile = {} } = await readJson(req);
+
+    // Bestehendes Profil laden
+    const prevRaw = await r.get(keyProfile);
+    const current = prevRaw ? JSON.parse(prevRaw) : {};
+
+    // Whitelist der Felder
+    const allowed = ["name","species","location","potCm","note"];
+
+    // Leere/Null-Werte entfernen ⇒ Feld wird aus dem Storage gelöscht
+    for (const field of allowed) {
+      const val = profile[field];
+      if (val === null || val === "" || typeof val === "undefined") {
+        delete current[field];
+      } else {
+        current[field] = val;
+      }
+    }
+
+    // Wenn nach dem Update keine Felder übrig sind ⇒ gesamten Key löschen
+    const keysLeft = Object.keys(current).filter(k => allowed.includes(k));
+    if (keysLeft.length === 0) {
+      await r.del(keyProfile);
+      return res.status(200).json({ ok:true, cleared:true });
+    }
+
+    current.updatedAt = new Date().toISOString();
+    await r.set(keyProfile, JSON.stringify(current));
     return res.status(200).json({ ok:true });
   }
 
