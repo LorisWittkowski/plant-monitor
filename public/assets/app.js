@@ -90,7 +90,7 @@ function initChart() {
           const total = ds.data.length || 1;
           const i = c.p0DataIndex ?? 0;
           const alpha = 0.25 + 0.75 * (i / total); // links transparenter → rechts deckender
-          const fg = cssVar('--fg', 'rgb(242,242,243)');
+          const fg = cssVar('--fg-strong', '#000');
           if (fg.startsWith('rgb(')) return fg.replace('rgb','rgba').replace(')',`,`+alpha+`)`);
           return `rgba(242,242,243,${alpha})`;
         }
