@@ -55,7 +55,12 @@ textarea{resize:vertical}
 /* Chart */
 .chart-card{padding:10px 12px}
 .chart-card .range{display:flex;gap:8px}
-.chart-card canvas{display:block;width:100%;height:220px}
+.chart-card canvas {
+  display: block;
+  width: 100% !important;
+  height: 220px !important;   /* <-- feste Höhe erzwingen */
+  max-height: 220px !important;
+}
 .range .btn.active{outline:2px dashed var(--focus)}
 
 /* Modal */
