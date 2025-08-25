@@ -10,9 +10,12 @@
 <body>
   <main class="container">
     <header class="header">
-      <div class="brand">Plant&nbsp;Monitor</div>
+      <div class="brand">
+        Plant&nbsp;Monitor
+      </div>
       <div class="actions">
         <button id="themeToggle" class="btn icon" aria-label="Theme umschalten" title="Theme umschalten">
+          <!-- SVGs werden via CSS je nach Theme gezeigt -->
           <svg class="ico sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 4.5a1 1 0 0 1 1 1V7a1 1 0 1 1-2 0V5.5a1 1 0 0 1 1-1Zm0 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM4.5 11a1 1 0 0 1 1-1H7a1 1 0 1 1 0 2H5.5a1 1 0 0 1-1-1Zm11 0a1 1 0 0 1 1-1H19a1 1 0 1 1 0 2h-2.5a1 1 0 0 1-1-1ZM6.22 6.22a1 1 0 0 1 1.42 0l1.06 1.06a1 1 0 0 1-1.42 1.42L6.22 7.64a1 1 0 0 1 0-1.42Zm8.08 8.08a1 1 0 0 1 1.42 0l1.06 1.06a1 1 0 0 1-1.42 1.42l-1.06-1.06a1 1 0 0 1 0-1.42Zm0-6.66 1.06-1.06a1 1 0 0 1 1.42 1.42l-1.06 1.06a1 1 0 0 1-1.42-1.42ZM8.7 16.3l-1.06 1.06a1 1 0 1 1-1.42-1.42L7.28 14.9a1 1 0 1 1 1.42 1.42ZM12 17a1 1 0 0 1 1 1v1.5a1 1 0 1 1-2 0V18a1 1 0 0 1 1-1Z"/></svg>
           <svg class="ico moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 1 0 21 12.79Z"/></svg>
         </button>
@@ -20,29 +23,32 @@
       </div>
     </header>
 
-    <!-- Kalibrierungs-Status unter dem Button -->
-    <div id="calibSummary" class="calib-summary" hidden>
-      <div class="chip">
-        <span class="label">DRY</span>
-        <span class="value" id="calDry">—</span>
-      </div>
-      <div class="chip">
-        <span class="label">WET</span>
-        <span class="value" id="calWet">—</span>
-      </div>
-    </div>
+    <!-- 1) Pflanzen-Daten -->
+    <section class="grid one">
+      <article class="card info">
+        <div class="card-head section-title">
+          <h2>Pflanzen­daten</h2>
+          <button id="saveInfo" class="btn primary">Speichern</button>
+        </div>
+        <div class="form-grid">
 
-    <!-- Live -->
+
+
+          <label class="field"><span>Name</span><input id="pi_name" type="text" placeholder="z. B. Monsti" /></label>
+          <label class="field"><span>Art</span><input id="pi_species" type="text" placeholder="z. B. Monstera deliciosa" /></label>
+          <label class="field"><span>Standort</span><input id="pi_location" type="text" placeholder="z. B. Wohnzimmer" /></label>
+          <label class="field"><span>Höhe (cm)</span><input id="pi_pot" type="number" inputmode="numeric" placeholder="z. B. 18" /></label>
+          <label class="field full"><span>Notiz</span><textarea id="pi_note" rows="2" placeholder="kurze Notiz…"></textarea></label>
+ </div>
+      </article>
+    </section>
+
+    <!-- 2) Live-Kachel -->
     <section class="grid one">
       <article class="card live">
         <div class="live-top">
           <div class="value" id="value">—%</div>
           <div class="sub">RAW <span id="raw">—</span><span class="sep"></span><span id="ts">—</span></div>
-          <div id="calibMeta" class="sub meta" hidden>
-  Kalibrierung: DRY <span id="calDry">—</span> · WET <span id="calWet">—</span>
-  <span id="calDate" class="dim"></span>
-</div>
-
         </div>
         <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100">
           <div id="fill" class="bar-fill"></div>
@@ -50,7 +56,7 @@
       </article>
     </section>
 
-    <!-- Graph -->
+    <!-- 3) Graph -->
     <section class="grid one">
       <article class="card chart-card">
         <div class="card-head section-title">
@@ -66,23 +72,28 @@
     </section>
   </main>
 
-  <!-- Kalibrieren Modal -->
+  <!-- Kalibrierung -->
   <dialog id="calibModal" class="modal">
     <form method="dialog" class="modal-card" aria-labelledby="modalTitle">
+      <div class="steps-dots" aria-hidden="true">
+        <span class="dot active" data-step="1"></span><span class="dot" data-step="2"></span>
+      </div>
       <header class="modal-head">
         <h3 id="modalTitle">Kalibrierung</h3>
         <button class="icon close" value="cancel" aria-label="Schließen">×</button>
       </header>
       <div class="modal-body">
-        <section class="step">
-          <h4>Trocken (DRY)</h4>
+        <section class="step" data-step="1">
+          <h4>Schritt 1 · Trocken (DRY)</h4>
+          <p>Sensor trocken. Aktuellen RAW übernehmen oder manuell eintragen.</p>
           <div class="row">
             <input id="dryInput" type="number" inputmode="numeric" placeholder="RAW trocken">
             <button id="useDryNow" class="btn ghost" type="button">Aktuell übernehmen</button>
           </div>
         </section>
-        <section class="step">
-          <h4>Nass (WET)</h4>
+        <section class="step" data-step="2" hidden>
+          <h4>Schritt 2 · Nass (WET)</h4>
+          <p>Sensor in Wasser. Aktuellen RAW übernehmen oder manuell eintragen.</p>
           <div class="row">
             <input id="wetInput" type="number" inputmode="numeric" placeholder="RAW nass">
             <button id="useWetNow" class="btn ghost" type="button">Aktuell übernehmen</button>
@@ -90,7 +101,9 @@
         </section>
       </div>
       <footer class="modal-foot">
-        <button id="saveCalib" class="btn primary" type="button">Speichern</button>
+        <button id="prevStep" class="btn ghost" type="button">Zurück</button><div class="spacer"></div>
+        <button id="nextStep" class="btn" type="button">Weiter</button>
+        <button id="saveCalib" class="btn primary" type="button" hidden>Speichern</button>
         <button id="resetCalib" class="btn danger ghost" type="button">Zurücksetzen</button>
       </footer>
     </form>

@@ -29,11 +29,6 @@ const els = {
   // Theme
   themeToggle: $("#themeToggle"),
   // Calibration
-    calibMeta: $("#calibMeta"),
-    calDry: $("#calDry"),
-    calWet: $("#calWet"),
-    calDate: $("#calDate"),
-
   calibBtn: $("#calibBtn"),
   modal: $("#calibModal"),
   dryInput: $("#dryInput"),
@@ -92,23 +87,6 @@ function updateLive(raw, atIso) {
   currentDisplayedPercent = p;
   els.raw.textContent = raw;
   els.ts.textContent = new Date(atIso).toLocaleString();
-}
-
-function renderCalibrationMeta() {
-  const has = config && Number.isFinite(config?.rawDry) && Number.isFinite(config?.rawWet);
-  if (!has) {
-    els.calibMeta?.setAttribute("hidden", "true");
-    return;
-  }
-  els.calibMeta?.removeAttribute("hidden");
-  els.calDry && (els.calDry.textContent = Math.round(config.rawDry));
-  els.calWet && (els.calWet.textContent = Math.round(config.rawWet));
-  if (config.lastCalibrated) {
-    const d = new Date(config.lastCalibrated);
-    els.calDate.textContent = "· " + d.toLocaleDateString() + ", " + d.toLocaleTimeString();
-  } else {
-    els.calDate.textContent = "";
-  }
 }
 
 // ===== Chart =====
@@ -204,7 +182,6 @@ async function fetchSeries(range) {
     if (r.status === 204) { setSeries([]); return; }
     const data = await r.json();
     if (data.config) config = data.config;
-    renderCalibrationMeta();
     if (data.latest) {
       latest = data.latest;
       updateLive(latest.raw, latest.at);
@@ -225,7 +202,6 @@ async function pollLatest() {
     if (nowAt && nowAt !== lastSeenAt) {
       lastSeenAt = nowAt;
       config = data.config || config;
-      renderCalibrationMeta();
       latest = data.latest;
       updateLive(latest.raw, latest.at);
       // Bei neuem Wert die aktuelle Range neu laden
