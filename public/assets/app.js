@@ -13,13 +13,12 @@ const $ = s => document.querySelector(s);
 const els = {
   value: $("#value"), raw: $("#raw"), ts: $("#ts"), fill: $("#fill"),
   chart: $("#chart"),
-  themeToggle: $("#themeToggle"), themeIcon: $("#themeIcon"),
+  themeToggle: $("#themeToggle"),
+  rangeButtons: () => document.querySelectorAll(".range .btn"),
   calibBtn: $("#calibBtn"), modal: $("#calibModal"),
   dryInput: $("#dryInput"), wetInput: $("#wetInput"),
   useDryNow: $("#useDryNow"), useWetNow: $("#useWetNow"),
-  prevStep: $("#prevStep"), nextStep: $("#nextStep"), saveCalib: $("#saveCalib"), resetCalib: $("#resetCalib"),
-  pi_name: $("#pi_name"), pi_species: $("#pi_species"), pi_location: $("#pi_location"), pi_pot: $("#pi_pot"), pi_note: $("#pi_note"),
-  saveInfo: $("#saveInfo")
+  prevStep: $("#prevStep"), nextStep: $("#nextStep"), saveCalib: $("#saveCalib"), resetCalib: $("#resetCalib")
 };
 
 // ===== Theme =====
@@ -28,14 +27,12 @@ const els = {
   const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
   const theme = saved || (prefersDark ? "dark" : "light");
   document.documentElement.setAttribute("data-theme", theme);
-  els.themeIcon.textContent = theme === "dark" ? "☾" : "☼";
 })();
 els.themeToggle.onclick = () => {
   const cur = document.documentElement.getAttribute("data-theme");
   const next = cur === "dark" ? "light" : "dark";
   document.documentElement.setAttribute("data-theme", next);
   localStorage.setItem("theme", next);
-  els.themeIcon.textContent = next === "dark" ? "☾" : "☼";
   if (chart) chart.update(); // Chart übernimmt neue CSS-Farben
 };
 
@@ -46,30 +43,23 @@ const asPercent = raw => {
     return clamp((raw/RAW_MAX)*100,0,100);
   return clamp(100*(raw - config.rawDry)/(config.rawWet - config.rawDry),0,100);
 };
-const tweenValue = (from,to,ms=450) => {
-  const start = performance.now();
-  const step = t => {
-    const k = Math.min(1,(t-start)/ms);
-    const v = Math.round(from + (to-from)*k);
-    els.value.textContent = v + "%";
-    if (k < 1) requestAnimationFrame(step);
-  };
-  requestAnimationFrame(step);
-};
 
 // ===== Live UI =====
 function updateLive(raw, atIso){
   const p = asPercent(raw);
   els.fill.style.width = p.toFixed(1) + "%";
-  if (currentDisplayedPercent == null) els.value.textContent = Math.round(p) + "%";
-  else if (Math.abs(currentDisplayedPercent - p) >= 1) tweenValue(Math.round(currentDisplayedPercent), Math.round(p));
-  else els.value.textContent = Math.round(p) + "%";
+  const show = Math.round(p);
+  if (currentDisplayedPercent == null) {
+    $("#value").textContent = show + "%";
+  } else if (Math.abs(currentDisplayedPercent - p) >= 1) {
+    $("#value").textContent = show + "%";
+  }
   currentDisplayedPercent = p;
   els.raw.textContent = raw;
   els.ts.textContent = new Date(atIso).toLocaleString();
 }
 
-// ===== Chart (ohne Hover, starke Farbe, robuster Fallback) =====
+// ===== Chart =====
 let chart;
 const cssVar = (name, fallback) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 
@@ -82,17 +72,13 @@ function initChart() {
       borderWidth: 2,
       tension: 0.35,
       fill: false,
-      pointRadius: 0,
-      borderColor: () => {
-        // kräftige, gut sichtbare Linienfarbe in beiden Themes
-        const fgStrong = cssVar('--fg-strong', '#222');
-        return fgStrong;
-      }
+      pointRadius: 0,              // wird dynamisch gesetzt
+      borderColor: () => cssVar('--fg-strong', '#222')
     }]},
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      animation: { duration: 450, easing: "easeOutCubic" },
+      animation: { duration: 400, easing: "easeOutCubic" },
       events: [],                       // keine Hover/Marker
       plugins: {
         legend: { display: false },
@@ -113,7 +99,7 @@ function initChart() {
   });
 }
 
-// Serie setzen: zeitlich sortiert, harte Obergrenze, Fallback wenn leer
+// Serie setzen: sortieren, Fallback, Punkte sichtbar machen wenn wenige
 function setSeries(points) {
   const norm = (points || [])
     .map(p => ({
@@ -123,7 +109,7 @@ function setSeries(points) {
     .filter(p => Number.isFinite(p.t) && Number.isFinite(p.y))
     .sort((a, b) => a.t - b.t);
 
-  // Fallback: Falls leer, aber latest existiert → zeige wenigstens einen Punkt
+  // Fallback: wenn leer, aber latest vorhanden → einen Punkt zeichnen (als Marker)
   if (norm.length === 0 && latest) {
     const t = new Date(latest.at).getTime();
     const y = (latest.percent != null) ? latest.percent : (latest.raw / RAW_MAX * 100);
@@ -135,30 +121,36 @@ function setSeries(points) {
 
   chart.data.labels = data.map(d => d.t);
   chart.data.datasets[0].data = data.map(d => d.y);
+
+  // Sichtbarkeit: wenn < 2 Punkte → Marker zeigen (sonst sieht man nichts)
+  chart.data.datasets[0].pointRadius = (data.length < 2) ? 3 : 0;
+  chart.options.plugins.decimation.enabled = (data.length >= 200);
+
   chart.update();
 }
 
-// Range laden (Server liefert bereits verdichtet)
+// Range laden
 async function fetchSeries(range) {
-  document.querySelectorAll('.range .btn').forEach(b => b.classList.toggle('active', b.dataset.range === range));
+  els.rangeButtons().forEach(b=>{
+    const active = b.dataset.range === range;
+    b.setAttribute("aria-selected", active ? "true" : "false");
+  });
   try {
     const r = await fetch(`/api/soil?sensorId=${encodeURIComponent(SENSOR_ID)}&range=${encodeURIComponent(range)}`, { cache: "no-store" });
     if (r.status === 204) { setSeries([]); return; }
     const data = await r.json();
-
     if (data.config) config = data.config;
     if (data.latest) {
       latest = data.latest;
       updateLive(latest.raw, latest.at);
     }
     setSeries(data.series || []);
-  } catch (e) {
-    // Fallback auf latest, falls Netzwerk/JSON-Problem
-    setSeries([]);
+  } catch {
+    setSeries([]); // Fallback
   }
 }
 
-// separat: Live-Poll für Kopf + Graph-Refresh
+// Live poll
 async function pollLatest(){
   try {
     const r = await fetch(`/api/soil?sensorId=${encodeURIComponent(SENSOR_ID)}&range=latest`, { cache:"no-store" });
@@ -171,16 +163,12 @@ async function pollLatest(){
       config = data.config || config;
       latest  = data.latest;
       updateLive(latest.raw, latest.at);
-      await fetchSeries(currentRange);
+      fetchSeries(currentRange);
     }
-  } catch(e) { /* still quiet */ }
+  } catch {}
 }
 
-// Plant Info (Optional – unverändert)
-function fillInfoUI(){ /* … */ }
-async function savePlantProfile(){ /* … */ }
-
-// Calibration
+// Calibration (wie gehabt, gekürzt)
 function showStep(n){
   document.querySelectorAll(".modal .step").forEach(sec => sec.hidden = Number(sec.dataset.step)!==n);
   document.querySelectorAll(".steps-dots .dot").forEach(dot=>dot.classList.toggle("active", Number(dot.dataset.step)===n));
@@ -188,28 +176,25 @@ function showStep(n){
   els.nextStep.hidden = (n===2);
   els.saveCalib.hidden = (n!==2);
 }
-els.calibBtn.onclick = () => { els.modal.showModal(); showStep(1); };
-els.prevStep.onclick = () => showStep(1);
-els.nextStep.onclick = () => showStep(2);
-els.useDryNow.onclick = () => { if(latest) els.dryInput.value = latest.raw; };
-els.useWetNow.onclick = () => { if(latest) els.wetInput.value = latest.raw; };
-els.saveCalib.onclick = async ()=>{
-  const rawDry=Number(els.dryInput.value), rawWet=Number(els.wetInput.value);
+document.getElementById("calibBtn").onclick = () => { document.getElementById("calibModal").showModal(); showStep(1); };
+document.getElementById("prevStep").onclick = () => showStep(1);
+document.getElementById("nextStep").onclick = () => showStep(2);
+document.getElementById("useDryNow").onclick = () => { if(latest) document.getElementById("dryInput").value = latest.raw; };
+document.getElementById("useWetNow").onclick = () => { if(latest) document.getElementById("wetInput").value = latest.raw; };
+document.getElementById("saveCalib").onclick = async ()=>{
+  const rawDry=Number(document.getElementById("dryInput").value), rawWet=Number(document.getElementById("wetInput").value);
   if(!Number.isFinite(rawDry)||!Number.isFinite(rawWet)){alert("Bitte DRY und WET RAW eingeben.");return;}
   const resp=await fetch("/api/calibrate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sensorId:SENSOR_ID,rawDry,rawWet})});
-  if(resp.ok){els.modal.close(); await fetchSeries(currentRange);} else alert("Kalibrierung fehlgeschlagen.");
+  if(resp.ok){document.getElementById("calibModal").close(); await fetchSeries(currentRange);} else alert("Kalibrierung fehlgeschlagen.");
 };
-els.resetCalib.onclick = async()=>{
+document.getElementById("resetCalib").onclick = async()=>{
   if(!confirm("Kalibrierung zurücksetzen?"))return;
   await fetch("/api/calibrate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sensorId:SENSOR_ID,reset:true})});
   await fetchSeries(currentRange);
 };
 
 // Events
-document.querySelectorAll('.range .btn').forEach(b=>{
-  b.onclick = async ()=>{ currentRange = b.dataset.range; await fetchSeries(currentRange); };
-});
-els.saveInfo.onclick = savePlantProfile;
+els.rangeButtons().forEach(b=>{ b.onclick = ()=>{ currentRange = b.dataset.range; fetchSeries(currentRange); }; });
 
 // Init
 initChart();
