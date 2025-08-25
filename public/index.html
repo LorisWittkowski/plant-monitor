@@ -69,13 +69,21 @@
 
     <!-- Historie -->
     <section class="card">
-      <header class="card-head">
+      <header class="card-head card-head-row">
         <h3>Historie</h3>
-        <!-- Neue, saubere Segmented-Control -->
-        <div class="range" role="tablist" aria-label="Zeitraum auswählen">
-          <button class="btn seg" data-range="1h"  role="tab" aria-selected="true">Letzte Stunde</button>
-          <button class="btn seg" data-range="24h" role="tab" aria-selected="false">24 h</button>
-          <button class="btn seg" data-range="7d"  role="tab" aria-selected="false">7 Tage</button>
+        <div class="head-tools">
+          <div class="range" role="tablist" aria-label="Zeitraum auswählen">
+            <button class="btn seg" data-range="1h"  role="tab" aria-selected="true">Letzte Stunde</button>
+            <button class="btn seg" data-range="24h" role="tab" aria-selected="false">24 h</button>
+            <button class="btn seg" data-range="7d"  role="tab" aria-selected="false">7 Tage</button>
+          </div>
+
+          <!-- Unauffälliger Skalen-Schalter -->
+          <label class="switch" title="Fixe Skala 0–100%">
+            <input id="scaleFixed" type="checkbox" />
+            <span class="track" aria-hidden="true"></span>
+            <span class="switch-label">0–100</span>
+          </label>
         </div>
       </header>
 
@@ -86,7 +94,7 @@
 
   </main>
 
-  <!-- Kalibrieren -->
+  <!-- Kalibrierungs-Dialog -->
   <dialog id="calibModal" class="modal">
     <div class="modal-card">
       <header class="modal-head">
@@ -99,7 +107,6 @@
       </header>
 
       <div class="modal-body">
-        <!-- Aktuelle Kalibrierung -->
         <div class="calib-summary" id="calibSummary">
           <div class="row1">
             <strong>Aktuell:</strong>
@@ -108,7 +115,6 @@
           <div class="row2" id="calibMeta">—</div>
         </div>
 
-        <!-- Schritt 1 -->
         <section class="step" data-step="1">
           <p>Sensor trocken. Aktuellen RAW übernehmen oder manuell eintragen.</p>
           <div class="inline">
@@ -117,9 +123,8 @@
           </div>
         </section>
 
-        <!-- Schritt 2 -->
         <section class="step" data-step="2" hidden>
-          <p>Sensor nass (Wasser/naße Erde). Aktuellen RAW übernehmen oder manuell eintragen.</p>
+          <p>Sensor nass. Aktuellen RAW übernehmen oder manuell eintragen.</p>
           <div class="inline">
             <input id="wetInput" class="input" placeholder="RAW nass" inputmode="numeric" />
             <button id="useWetNow" class="btn">Aktuell übernehmen</button>

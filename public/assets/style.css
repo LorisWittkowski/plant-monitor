@@ -1,20 +1,35 @@
-/* CSS-Variablen (Light/Dark) */
+/* === Farb-System: helle & dunkle Grautöne mit Nuancen === */
 :root{
-  --bg:#f6f6f7; --panel:#fff; --fg:#111; --fg-strong:#000;
-  --muted:#6b7280; --stroke:#e6e7ea; --bar:#0f0f12; --bar-bg:#e9eaee;
-  --shadow: 0 8px 32px rgba(0,0,0,.08);
+  --bg:#f5f6f7;           /* sehr helles Grau */
+  --panel:#ffffff;        /* Karten-Hintergrund */
+  --fg:#121416;           /* Text dunkel */
+  --fg-strong:#0b0c0d;    /* starke Akzente (z.B. Linienfarbe) */
+  --muted:#6f757b;        /* sekundärer Text */
+  --stroke:#e4e6ea;       /* Linien, Rahmen */
+  --bar:#111214;          /* Füllbalken */
+  --bar-bg:#eceef1;       /* Balken-Hintergrund */
+  --panel-tint: color-mix(in oklab, var(--panel) 70%, transparent);
+  --shadow: 0 12px 40px rgba(0,0,0,.08);
 }
 :root[data-theme="dark"]{
-  --bg:#0d0f11; --panel:#111418; --fg:#e9eaee; --fg-strong:#fff;
-  --muted:#9aa0a6; --stroke:#1e232a; --bar:#e9eaee; --bar-bg:#22262c;
-  --shadow: 0 8px 32px rgba(0,0,0,.35);
+  --bg:#121416;           /* angenehmes Dunkelgrau (leicht warm) */
+  --panel:#171a1e;        /* Karten-Hintergrund dunkler, aber weich */
+  --fg:#e7eaee;           /* Text sehr helles Grau */
+  --fg-strong:#ffffff;    /* starke Akzente */
+  --muted:#a3aab1;        /* dezente Labels */
+  --stroke:#242a31;       /* Rahmen/Gitter */
+  --bar:#f2f3f5;          /* Füllbalken hell */
+  --bar-bg:#1e2329;       /* Balken-Hintergrund dunkler */
+  --panel-tint: color-mix(in oklab, var(--panel) 70%, transparent);
+  --shadow: 0 12px 40px rgba(0,0,0,.35);
 }
 
 /* Base */
 *{box-sizing:border-box}
 html,body{height:100%}
 body{
-  margin:0; font: 16px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  margin:0;
+  font: 16px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   background:var(--bg); color:var(--fg);
 }
 .container{max-width:1100px;margin:0 auto;padding:16px}
@@ -23,14 +38,16 @@ body{
 .topbar{display:flex;justify-content:space-between;align-items:center}
 .actions{display:flex;gap:8px}
 
+/* Cards */
 .card{
   background:var(--panel); border:1px solid var(--stroke); border-radius:22px;
   box-shadow:var(--shadow); padding:16px;
 }
-.card-head{
-  display:flex; align-items:center; gap:12px; margin-bottom:10px;
-}
-.card-head h2,.card-head h3{margin:0 8px 0 0}
+.card-head{display:flex; gap:12px; align-items:center; margin-bottom:10px}
+.card-head-row{justify-content:space-between}
+.card-head h2,.card-head h3{margin:0}
+
+.head-tools{display:flex; gap:10px; align-items:center}
 
 /* Grid */
 .grid2{display:grid; grid-template-columns:1fr 1fr}
@@ -54,25 +71,23 @@ body{
 .btn.ghost{background:transparent}
 .btn:focus-visible{outline:none; box-shadow:0 0 0 2px color-mix(in oklab, var(--fg) 25%, transparent)}
 
-/* Range (Segmented Control) */
+/* Range – Segmented Control */
 .range{
   display:flex; gap:6px; padding:4px; border:1px solid var(--stroke);
-  border-radius:16px; background:color-mix(in oklab, var(--panel) 70%, transparent);
+  border-radius:16px; background:var(--panel-tint);
 }
-.btn.seg{
-  border:none; background:transparent; color:var(--fg); padding:8px 12px; border-radius:12px;
-}
-.btn.seg[aria-selected="true"]{
-  background:var(--fg); color:var(--panel);
-}
+.btn.seg{border:none; background:transparent; color:var(--fg); padding:8px 12px; border-radius:12px}
+.btn.seg[aria-selected="true"]{background:var(--fg); color:var(--panel)}
+
 @media (max-width: 640px){
   .card-head{flex-direction:column; align-items:flex-start; gap:10px}
-  .range{width:100%}
+  .head-tools{width:100%; gap:8px; flex-wrap:wrap}
+  .range{flex:1}
   .btn.seg{flex:1; text-align:center}
-  .grid2{grid-template-columns:1fr} /* Stack inputs */
+  .grid2{grid-template-columns:1fr}
 }
 
-/* Live card */
+/* Live */
 .live-wrap{display:flex;gap:16px;align-items:center}
 .live-left{min-width:140px}
 .live-percent{font-size:64px; line-height:1; letter-spacing:-0.02em}
@@ -91,6 +106,21 @@ body{
   background:var(--panel); color:var(--fg); border:1px solid var(--stroke);
 }
 .textarea-auto::placeholder{color:var(--muted)}
+
+/* Small switch (unauffällig) */
+.switch{display:inline-flex; align-items:center; gap:8px; color:var(--muted)}
+.switch .switch-label{font-size:12.5px}
+.switch input{display:none}
+.switch .track{
+  width:36px; height:20px; border-radius:999px; background:var(--panel-tint);
+  border:1px solid var(--stroke); position:relative; display:inline-block;
+}
+.switch .track::after{
+  content:""; position:absolute; top:2px; left:2px; width:14px; height:14px;
+  border-radius:50%; background:var(--muted); transition:transform .2s ease, background .2s ease;
+}
+.switch input:checked + .track{background:var(--fg)}
+.switch input:checked + .track::after{transform:translateX(16px); background:var(--panel)}
 
 /* Modal */
 .modal{border:0;padding:0;background:transparent}

@@ -7,6 +7,7 @@ const DEFAULT_RANGE = "1h";
 // State
 let latest = null, config = null, lastSeenAt = null, currentDisplayedPercent = null;
 let currentRange = DEFAULT_RANGE, plantProfile = null;
+let fixedScale = false; // 0–100 fest
 
 // DOM
 const $ = s => document.querySelector(s);
@@ -25,6 +26,7 @@ const els = {
   pi_name: $("#pi_name"), pi_species: $("#pi_species"),
   pi_location: $("#pi_location"), pi_pot: $("#pi_pot"),
   pi_note: $("#pi_note"), saveInfo: $("#saveInfo"),
+  scaleFixed: $("#scaleFixed"),
 };
 
 // Theme
@@ -100,7 +102,7 @@ function initChart(){
       fill: false,
       pointRadius: 0,
       borderColor: () => cssVar('--fg-strong', '#222'),
-      clip: 12 // erlaubt ein bisschen „über den Rand“
+      clip: 12 // etwas „über“ den Rand zeichnen
     }]},
     options: {
       responsive:true, maintainAspectRatio:false,
@@ -153,13 +155,16 @@ function setSeries(points){
   chart.data.labels = data.map(d=>d.t);
   chart.data.datasets[0].data = data.map(d=>d.y);
 
-  // Y Skala mit Puffer
+  // Y Skala
   const vals = data.map(d=>d.y).filter(v=>typeof v==="number" && isFinite(v));
-  if (vals.length){
+  if (fixedScale){
+    chart.options.scales.y.min = 0;
+    chart.options.scales.y.max = 100;
+  } else if (vals.length){
     const minV = Math.max(0, Math.min(...vals));
     const maxV = Math.min(100, Math.max(...vals));
     const spread = Math.max(2, maxV-minV);
-    const pad = Math.max(3, spread * 0.12);
+    const pad = Math.max(3, spread * 0.12); // 12% Puffer, min 3%
     chart.options.scales.y.min = Math.max(0, Math.floor((minV - pad) * 10) / 10);
     chart.options.scales.y.max = Math.min(100, Math.ceil((maxV + pad) * 10) / 10);
   } else {
@@ -266,6 +271,21 @@ els.resetCalib?.addEventListener("click", async ()=>{
   await fetch("/api/calibrate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sensorId:SENSOR_ID,reset:true})});
   await fetchSeries(currentRange); renderCalibSummary();
 });
+
+// Scale switch
+(function initScaleSwitch(){
+  const saved = localStorage.getItem("fixedScale");
+  fixedScale = saved === "1";
+  if (els.scaleFixed) {
+    els.scaleFixed.checked = fixedScale;
+    els.scaleFixed.addEventListener("change", () => {
+      fixedScale = !!els.scaleFixed.checked;
+      localStorage.setItem("fixedScale", fixedScale ? "1" : "0");
+      // Nur Skala neu anwenden – Daten bestehen lassen
+      if (chart) setSeries(chart.data.datasets[0].data.map((y, i) => ({ t: chart.data.labels[i], y })));
+    });
+  }
+})();
 
 // Events & Init
 els.rangeButtons().forEach(b=> b.addEventListener("click", ()=>{
