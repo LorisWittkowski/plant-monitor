@@ -29,18 +29,24 @@ const els = {
   scaleFixed: $("#scaleFixed"),
 };
 
-// Theme
+// Theme – init & toggle (Button zeigt Zielmodus)
 (function initTheme(){
   const saved = localStorage.getItem("theme");
   const prefers = matchMedia("(prefers-color-scheme: dark)").matches;
   const t = saved || (prefers ? "dark":"light");
   document.documentElement.setAttribute("data-theme", t);
+  updateThemeButtonLabel();
 })();
+function updateThemeButtonLabel(){
+  const cur = document.documentElement.getAttribute("data-theme");
+  if (els.themeToggle) els.themeToggle.textContent = (cur === "dark" ? "Light" : "Dark");
+}
 els.themeToggle?.addEventListener("click", ()=>{
   const cur = document.documentElement.getAttribute("data-theme");
   const next = cur==="dark"?"light":"dark";
   document.documentElement.setAttribute("data-theme", next);
   localStorage.setItem("theme", next);
+  updateThemeButtonLabel();
   if (chart) chart.update();
 });
 
@@ -136,7 +142,7 @@ function setSeries(points){
     .filter(p=>Number.isFinite(p.t))
     .sort((a,b)=>a.t-b.t);
 
-  // Lücke bei Kalibrierung
+  // Lücke bei Kalibrierung (verhindert dominierende Spitzen)
   if (config?.lastCalibrated){
     const hushBefore = 30*1000, hushAfter = 60*1000;
     const t0 = new Date(config.lastCalibrated).getTime();
@@ -155,7 +161,7 @@ function setSeries(points){
   chart.data.labels = data.map(d=>d.t);
   chart.data.datasets[0].data = data.map(d=>d.y);
 
-  // Y Skala
+  // Y-Skala
   const vals = data.map(d=>d.y).filter(v=>typeof v==="number" && isFinite(v));
   if (fixedScale){
     chart.options.scales.y.min = 0;
