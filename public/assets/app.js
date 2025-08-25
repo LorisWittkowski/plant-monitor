@@ -68,13 +68,16 @@ function initChart(){
       fill: false,
       pointRadius: 0,
       segment: {
-        borderColor: ctx => {
-          const i = ctx.p0DataIndex;
-          const total = chart.data.datasets[0].data.length || 1;
-          const fade = 0.2 + 0.8*(i/total); // links transparent, rechts voll
-          return `rgba(242,242,243,${fade})`;
-        }
-      }
+  borderColor: ctx => {
+    const total = ctx.chart.data.datasets[0].data.length || 1;
+    const i = ctx.p0DataIndex;
+    const fade = 0.2 + 0.8 * (i / total);
+    return getComputedStyle(document.documentElement)
+      .getPropertyValue('--fg').trim()   // Theme-Farbe holen
+      .replace(')', `,${fade})`).replace('rgb', 'rgba');
+  }
+}
+
     }]},
     options: {
       responsive: true, maintainAspectRatio: false,
