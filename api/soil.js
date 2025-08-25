@@ -27,11 +27,10 @@ function toPercentWithFallback(raw, cfg) {
   if (cfg && typeof cfg.rawDry === "number" && typeof cfg.rawWet === "number" && cfg.rawDry !== cfg.rawWet) {
     return clamp(100 * (raw - cfg.rawDry) / (cfg.rawWet - cfg.rawDry), 0, 100);
   }
-  // Fallback: ohne Kalibrierung skaliere auf 0..100% aus RAW
-  return clamp(100 * (raw / RAW_MAX), 0, 100);
+  return clamp(100 * (raw / RAW_MAX), 0, 100); // Fallback ohne Kalibrierung
 }
 
-// bucketize entries in fixed windows; returns [{at, rawAvg, percent}]
+// Aggregation zu Fenstern → [{at, rawAvg, percent}]
 function bucketize(entries, windowMs, cfg) {
   if (!entries || !entries.length) return [];
   const buckets = new Map();
@@ -43,7 +42,7 @@ function bucketize(entries, windowMs, cfg) {
     if (!b) { b = { sumRaw:0, cnt:0 }; buckets.set(k, b); }
     if (typeof e.raw === "number") { b.sumRaw += e.raw; b.cnt++; }
     else if (typeof e.rawAvg === "number") { b.sumRaw += e.rawAvg; b.cnt++; }
-    else if (typeof e.percent === "number") { b.sumRaw += (e.percent/100) * RAW_MAX; b.cnt++; }
+    else if (typeof e.percent === "number") { b.sumRaw += (e.percent/100)*RAW_MAX; b.cnt++; }
   }
   const out = [];
   for (const [k,b] of buckets.entries()) {
@@ -56,6 +55,29 @@ function bucketize(entries, windowMs, cfg) {
   return out;
 }
 
+// Lücken zwischen from..to in festen Schritten mit y:null ausfüllen
+function fillMissing(series, fromMs, toMs, windowMs) {
+  if (!windowMs || fromMs >= toMs) return series || [];
+  const byBucket = new Map();
+  for (const item of (series || [])) {
+    const t = new Date(item.at).getTime();
+    const k = Math.floor(t / windowMs) * windowMs;
+    byBucket.set(k, item);
+  }
+  const start = Math.floor(fromMs / windowMs) * windowMs;
+  const end   = Math.floor(toMs   / windowMs) * windowMs;
+  const full = [];
+  for (let k = start; k <= end; k += windowMs) {
+    const hit = byBucket.get(k);
+    if (hit) {
+      full.push(hit);
+    } else {
+      full.push({ at: new Date(k + windowMs/2).toISOString(), rawAvg: null, percent: null });
+    }
+  }
+  return full;
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
@@ -65,15 +87,14 @@ export default async function handler(req, res) {
   const sensorId = (req.query.sensorId || "soil-1").toString();
   const r = await redis();
 
-  const keyLatest    = `soil:${sensorId}:latest`;    // {raw, percent, at}
-  const keyHistory   = `soil:${sensorId}:history`;   // rohe Posts (kurz)
-  const keyConfig    = `soil:${sensorId}:config`;    // {rawDry,rawWet}
+  const keyLatest    = `soil:${sensorId}:latest`;
+  const keyHistory   = `soil:${sensorId}:history`;
+  const keyConfig    = `soil:${sensorId}:config`;
 
-  // 10-Min Aggregation state & series
   const keyCurWin    = `soil:${sensorId}:agg10m:curWindow`;
   const keyCurSum    = `soil:${sensorId}:agg10m:sum`;
   const keyCurCnt    = `soil:${sensorId}:agg10m:cnt`;
-  const keyAgg10m    = `soil:${sensorId}:agg10m`;    // list of {at, rawAvg, percent}
+  const keyAgg10m    = `soil:${sensorId}:agg10m`;
 
   if (req.method === "GET") {
     const range = (req.query.range || "latest").toString(); // latest | 1h | 24h | 7d
@@ -84,7 +105,6 @@ export default async function handler(req, res) {
 
     if (range === "latest") {
       if (!latest) return res.status(204).end();
-      // garantiert percent
       const raw = Number(latest.raw);
       const percent = toPercentWithFallback(raw, config);
       return res.status(200).json({ latest: { ...latest, percent }, config });
@@ -93,32 +113,38 @@ export default async function handler(req, res) {
     const now = Date.now();
     let entries = [];
     let windowMs = 0;
+    let from = 0;
 
     if (range === "1h") {
-      const list = await r.lRange(keyHistory, 0, 4000); // >2h @5s
-      const from = now - 60*60*1000;
+      const list = await r.lRange(keyHistory, 0, 4000);
+      from = now - 60*60*1000;
       entries = (list || []).map(s => JSON.parse(s)).filter(p => new Date(p.at).getTime() >= from).reverse();
       windowMs = 60 * 1000; // 1 Minute
     } else if (range === "24h") {
       const list = await r.lRange(keyAgg10m, 0, 5000);
-      const from = now - 24*60*60*1000;
+      from = now - 24*60*60*1000;
       entries = (list || []).map(s => JSON.parse(s)).filter(p => new Date(p.at).getTime() >= from).reverse();
       windowMs = 30 * 60 * 1000; // 30 Minuten (3×10)
     } else { // 7d
       const list = await r.lRange(keyAgg10m, 0, 5000);
-      const from = now - 7*24*60*60*1000;
+      from = now - 7*24*60*1000*24; // same as 7*24*60*60*1000
+      from = now - 7*24*60*60*1000;
       entries = (list || []).map(s => JSON.parse(s)).filter(p => new Date(p.at).getTime() >= from).reverse();
       windowMs = 2 * 60 * 60 * 1000; // 2 Stunden (12×10)
     }
 
-    const series = bucketize(entries, windowMs, config);
+    // 1) aggregieren
+    const seriesAgg = bucketize(entries, windowMs, config);
+    // 2) Lücken füllen (bis "now")
+    const seriesFull = fillMissing(seriesAgg, from, now, windowMs);
 
-    if (!latest && series.length===0) return res.status(204).end();
+    if (!latest && seriesFull.every(p => p.percent == null)) return res.status(204).end();
+
     const safeLatest = latest
       ? { ...latest, percent: toPercentWithFallback(Number(latest.raw), config) }
       : null;
 
-    return res.status(200).json({ sensorId, latest: safeLatest, config, series });
+    return res.status(200).json({ sensorId, latest: safeLatest, config, series: seriesFull });
   }
 
   if (req.method === "POST") {
@@ -166,7 +192,7 @@ export default async function handler(req, res) {
       };
       await Promise.all([
         r.lPush(`soil:${id}:agg10m`, JSON.stringify(entry)),
-        r.lTrim(`soil:${id}:agg10m`, 0, 5000) // ≈34 Tage
+        r.lTrim(`soil:${id}:agg10m`, 0, 5000)
       ]);
       sum = 0; cnt = 0;
     }
