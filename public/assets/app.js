@@ -1,14 +1,11 @@
-// ---- Config ----
 const POLL_MS = 3000;
 const RAW_MAX = 4095;
-const MAX_POINTS = 100;         // sichtbare Datenpunkte
-const SENSOR_ID = "soil-1";     // nur intern, nicht angezeigt
+const MAX_POINTS = 100;
+const SENSOR_ID = "soil-1";
 
-// ---- State ----
 let latest = null, config = null;
 let lastSeenAt = null;
 
-// ---- DOM ----
 const $ = s => document.querySelector(s);
 const els = {
   value: $("#value"), raw: $("#raw"), ts: $("#ts"), fill: $("#fill"),
@@ -19,10 +16,10 @@ const els = {
   resetCalib: $("#resetCalib"), themeToggle: $("#themeToggle"), themeIcon: $("#themeIcon")
 };
 
-// ---- Theme Toggle ----
+// Theme Toggle
 (function initTheme(){
   const saved = localStorage.getItem("theme");
-  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
   const theme = saved || (prefersDark ? "dark" : "light");
   document.documentElement.setAttribute("data-theme", theme);
   els.themeIcon.textContent = theme === "dark" ? "☾" : "☼";
@@ -35,17 +32,17 @@ els.themeToggle.onclick = () => {
   els.themeIcon.textContent = next === "dark" ? "☾" : "☼";
 };
 
-// ---- Helpers ----
+// Helpers
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 const bump = el => { el.classList.add("bump"); setTimeout(()=>el.classList.remove("bump"),200); };
 const asPercent = (raw)=>{
   if (!config || config.rawDry==null || config.rawWet==null || config.rawDry===config.rawWet) {
-    return clamp((raw/RAW_MAX)*100, 0, 100);
+    return clamp((raw/RAW_MAX)*100,0,100);
   }
   return clamp(100*(raw - config.rawDry)/(config.rawWet - config.rawDry),0,100);
 };
 
-// ---- Live UI ----
+// Live UI
 function updateLive(raw, atIso){
   const p = asPercent(raw);
   els.fill.style.width = p.toFixed(1) + "%";
@@ -55,7 +52,7 @@ function updateLive(raw, atIso){
   bump(els.value);
 }
 
-// ---- Chart ----
+// Chart
 let chart;
 function initChart(){
   const ctx = els.chart.getContext("2d");
@@ -68,16 +65,17 @@ function initChart(){
       fill: false,
       pointRadius: 0,
       segment: {
-  borderColor: ctx => {
-    const total = ctx.chart.data.datasets[0].data.length || 1;
-    const i = ctx.p0DataIndex;
-    const fade = 0.2 + 0.8 * (i / total);
-    return getComputedStyle(document.documentElement)
-      .getPropertyValue('--fg').trim()   // Theme-Farbe holen
-      .replace(')', `,${fade})`).replace('rgb', 'rgba');
-  }
-}
-
+        borderColor: ctx => {
+          const total = ctx.chart.data.datasets[0].data.length || 1;
+          const i = ctx.p0DataIndex;
+          const fade = 0.2 + 0.8*(i/total);
+          const fg = getComputedStyle(document.documentElement).getPropertyValue('--fg').trim() || "rgb(242,242,243)";
+          if(fg.startsWith("rgb(")) {
+            return fg.replace("rgb","rgba").replace(")",`,`+fade+`)`);
+          }
+          return fg;
+        }
+      }
     }]},
     options: {
       responsive: true, maintainAspectRatio: false,
@@ -108,7 +106,7 @@ function pushValue(percent){
   chart.update();
 }
 
-// ---- Fetch & Poll ----
+// Fetch & Poll
 async function fetchSoil(){
   const r = await fetch(`/api/soil?sensorId=${encodeURIComponent(SENSOR_ID)}&limit=${MAX_POINTS}`, { cache: "no-store" });
   if (r.status === 204) return;
@@ -116,7 +114,6 @@ async function fetchSoil(){
   latest = data.latest; config = data.config || null;
   const at = latest.at;
 
-  // Initial history
   if (!lastSeenAt && Array.isArray(data.history)) {
     const hist = data.history;
     const percents = hist.map(h => (h.percent!=null ? h.percent : (h.raw/RAW_MAX*100)));
@@ -124,7 +121,6 @@ async function fetchSoil(){
     chart.update();
   }
 
-  // Neuer Wert?
   if (lastSeenAt !== at) {
     lastSeenAt = at;
     const p = asPercent(latest.raw);
@@ -137,7 +133,7 @@ initChart();
 fetchSoil();
 setInterval(fetchSoil, POLL_MS);
 
-// ---- Calibration ----
+// Calibration
 function showStep(n){
   document.querySelectorAll(".modal .step").forEach(sec => sec.hidden = Number(sec.dataset.step)!==n);
   document.querySelectorAll(".steps-dots .dot").forEach(dot=>dot.classList.toggle("active", Number(dot.dataset.step)===n));
