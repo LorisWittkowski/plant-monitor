@@ -11,7 +11,6 @@ function redis() {
   return redisP;
 }
 
-// Arduino-sicherer JSON-Read
 async function readJson(req) {
   if (req.body && typeof req.body === "object") return req.body;
   const chunks = [];
@@ -21,7 +20,7 @@ async function readJson(req) {
   try { return JSON.parse(raw); } catch { return {}; }
 }
 
-function clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
+const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 function toPercent(raw, dry, wet) {
   if (typeof dry !== "number" || typeof wet !== "number" || dry === wet) return null;
   return clamp(100 * (raw - dry) / (wet - dry), 0, 100);
@@ -59,17 +58,16 @@ export default async function handler(req, res) {
     const { sensorId: sid, raw, token } = await readJson(req);
     const id = (sid || sensorId).toString();
 
-    // Optional: Token erlauben, aber nicht erzwingen (falls gesetzt)
     if (process.env.INGEST_TOKEN && token !== process.env.INGEST_TOKEN) {
       return res.status(401).json({ error: "unauthorized_token" });
     }
-
     const value = Number(raw);
     if (!Number.isFinite(value)) return res.status(422).json({ error: "raw_numeric_required" });
 
     const cfgRaw = await r.get(`soil:${id}:config`);
     const cfg = cfgRaw ? JSON.parse(cfgRaw) : null;
-    const percent = (cfg?.rawDry != null && cfg?.rawWet != null) ? toPercent(value, cfg.rawDry, cfg.rawWet) : null;
+    const percent = (cfg?.rawDry != null && cfg?.rawWet != null)
+      ? toPercent(value, cfg.rawDry, cfg.rawWet) : null;
 
     const payload = { raw: value, percent, at: new Date().toISOString() };
     await Promise.all([

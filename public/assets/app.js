@@ -1,138 +1,159 @@
-// ——— Config
-const SENSOR_ID = "soil-1";
+// ---- Config ----
 const POLL_MS = 3000;
 const RAW_MAX = 4095;
-const MAX_POINTS = 180; // ~9 Minuten Historie
+const MAX_POINTS = 120;           // sichtbare Punkte
+const SENSOR_ID = "soil-1";       // UI zeigt es nicht; nur intern
 
-// ——— State
-let latest=null, config=null, history=[];
-let step=1;
+// ---- State ----
+let latest = null, config = null;
+let percentSeries = [];           // nur Prozentwerte (0..100)
+let lastSeenAt = null;
+let step = 1;
 
-// ——— DOM
+// ---- DOM ----
 const $ = s => document.querySelector(s);
 const els = {
   value: $("#value"), raw: $("#raw"), ts: $("#ts"), fill: $("#fill"),
-  chart: $("#chart"), sensorId: $("#sensorId"),
-  calibBtn: $("#calibBtn"), modal: $("#calibModal"),
-  dryInput: $("#dryInput"), wetInput: $("#wetInput"),
+  chart: $("#chart"), calibBtn: $("#calibBtn"),
+  modal: $("#calibModal"), dryInput: $("#dryInput"), wetInput: $("#wetInput"),
   useDryNow: $("#useDryNow"), useWetNow: $("#useWetNow"),
-  prevStep: $("#prevStep"), nextStep: $("#nextStep"),
-  saveCalib: $("#saveCalib"), resetCalib: $("#resetCalib")
+  prevStep: $("#prevStep"), nextStep: $("#nextStep"), saveCalib: $("#saveCalib"),
+  resetCalib: $("#resetCalib"), themeToggle: $("#themeToggle"), themeIcon: $("#themeIcon")
 };
 
-// ——— Helpers
-function clamp(n,a,b){ return Math.max(a,Math.min(b,n)); }
-function bump(el){ el.classList.add("bump"); setTimeout(()=>el.classList.remove("bump"),200); }
-function calcPercent(raw){
+// ---- Theme Toggle (pref + localStorage) ----
+(function initTheme(){
+  const saved = localStorage.getItem("theme");
+  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const theme = saved || (prefersDark ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", theme);
+  els.themeIcon.textContent = theme === "dark" ? "☾" : "☼";
+})();
+els.themeToggle.onclick = () => {
+  const cur = document.documentElement.getAttribute("data-theme");
+  const next = cur === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  localStorage.setItem("theme", next);
+  els.themeIcon.textContent = next === "dark" ? "☾" : "☼";
+};
+
+// ---- Helpers ----
+const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
+const bump = el => { el.classList.add("bump"); setTimeout(()=>el.classList.remove("bump"),200); };
+const asPercent = (raw)=>{
   if (!config || config.rawDry==null || config.rawWet==null || config.rawDry===config.rawWet) {
     return clamp((raw/RAW_MAX)*100, 0, 100);
   }
   const p = 100*(raw - config.rawDry)/(config.rawWet - config.rawDry);
   return clamp(p, 0, 100);
-}
+};
 
-// ——— UI
-function setBarAndValue(raw, atISO){
-  const p = calcPercent(raw);
+// ---- Live UI ----
+function updateLive(raw, atIso){
+  const p = asPercent(raw);
   els.fill.style.width = p.toFixed(1) + "%";
   els.value.textContent = Math.round(p) + "%";
   els.raw.textContent = raw;
-  els.ts.textContent = new Date(atISO).toLocaleString();
+  els.ts.textContent = new Date(atIso).toLocaleString();
   bump(els.value);
 }
 
-// ——— Chart: nur Punkte, Fade nach links, ohne Grid/Achsen (bis auf dezente Y-Linie + DRY/WET)
+// ---- Chart (wandernde Punkte, links verblassen) ----
 let chart;
 function initChart(){
   const ctx = els.chart.getContext("2d");
-
-  // Custom plugin für dünne Y-Achse + DRY/WET Labels
-  const minimalistAxis = {
-    id: "minimalistAxis",
-    afterDraw(c) {
-      const { ctx, chartArea:{top,bottom,left,right}, scales:{y} } = c;
-      ctx.save();
-      // dünne Y-Linie
-      ctx.strokeStyle = "#1b1b1c";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(left+8, top);
-      ctx.lineTo(left+8, bottom);
-      ctx.stroke();
-      // DRY / WET Labels
-      ctx.fillStyle = "#9a9a9b";
-      ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, Consolas, 'Courier New', monospace";
-      ctx.textAlign = "left";
-      ctx.textBaseline = "middle";
-      ctx.fillText("WET", left+12, y.getPixelForValue(100));
-      ctx.fillText("DRY", left+12, y.getPixelForValue(0));
-      ctx.restore();
-    }
-  };
-
   chart = new Chart(ctx, {
     type: "scatter",
     data: { datasets: [{
-      data: [], // {x, y}
-      showLine: false,
-      pointRadius: 4,
-      pointHoverRadius: 5,
-      pointBorderWidth: 0,
-      pointBackgroundColor: (c) => {
-        const i = c.dataIndex, total = c.dataset.data.length || 1;
-        const fade = 1 - (i/total)*0.85; // nach links verblassen
-        return `rgba(242,242,243,${fade.toFixed(3)})`;
+      data: [], showLine: false, borderWidth: 0,
+      pointRadius: 4, pointHoverRadius: 5,
+      pointBackgroundColor: ctx => {
+        const i = ctx.dataIndex;
+        const total = ctx.dataset.data.length || 1;
+        const fade = 1 - (i/total)*0.85;        // nach links verblassen
+        return `rgba(242,242,243,${fade})`;     // passt sich im Light-Theme via canvas overlay nicht auto an
       }
     }]},
     options: {
-      animations: {
-        numbers: { duration: 500, easing: "easeOutCubic" },
-      },
-      responsive: true,
-      maintainAspectRatio: false,
+      animation: { duration: 600, easing: "easeOutCubic" },
+      responsive: true, maintainAspectRatio: false,
       scales: {
-        x: { display:false, min: 0, max: MAX_POINTS-1 },
-        y: { display:false, min: 0, max: 100 }
+        x: { display: false, min: 0, max: MAX_POINTS-1 },
+        y: {
+          min: 0, max: 100,
+          grid: { display: false },
+          ticks: {
+            display: true,
+            color: getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || "#9a9a9b",
+            callback: (val) => (val===0 ? "DRY" : (val===100 ? "WET" : "")),
+            maxTicksLimit: 2
+          },
+          border: {
+            display: true,
+            color: getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || "#9a9a9b",
+            width: 1
+          }
+        }
       },
-      plugins: { legend:{display:false}, tooltip:{enabled:false} },
-      layout: { padding: { top: 8, right: 8, bottom: 8, left: 28 } }
-    },
-    plugins: [minimalistAxis]
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      layout: { padding: 6 }
+    }
   });
 }
-
-function updateChart(){
-  if (!chart) return;
-  const series = history.map((h, idx) => ({
-    x: idx,
-    y: (h.percent!=null ? h.percent : (h.raw/RAW_MAX*100))
-  }));
-  chart.data.datasets[0].data = series.slice(-MAX_POINTS);
+function applySeriesToChart(series){
+  const data = series.map((y,i)=>({x:i, y}));
+  chart.data.datasets[0].data = data;
   chart.update();
 }
-
-// ——— Data
-async function fetchSoil(){
-  const r = await fetch(`/api/soil?sensorId=${encodeURIComponent(SENSOR_ID)}&limit=${MAX_POINTS}`, { cache:"no-store" });
-  if (r.status === 204) return;
-  const data = await r.json();
-  latest = data.latest; config = data.config || null; history = data.history || [];
-  setBarAndValue(latest.raw, latest.at);
-  updateChart();
+// „Wandernde Punkte“: bei neuem Wert nehmen alle Punkte den Y-Wert ihres rechten Nachbarn an.
+// Finalzustand entspricht normalem Shift, erzeugt aber eine vertikale Bewegung.
+function shiftAnimateWith(newPercent){
+  const old = percentSeries.slice();
+  if (old.length === 0) {
+    percentSeries = [newPercent];
+  } else {
+    const shifted = old.map((_,i) => (i < old.length-1 ? old[i+1] : newPercent));
+    percentSeries = shifted;
+  }
+  if (percentSeries.length > MAX_POINTS) percentSeries = percentSeries.slice(-MAX_POINTS);
+  applySeriesToChart(percentSeries);
 }
 
-// ——— Poll
-initChart();
+// ---- Fetch & Poll ----
+async function fetchSoil(){
+  const r = await fetch(`/api/soil?sensorId=${encodeURIComponent(SENSOR_ID)}&limit=${MAX_POINTS}`, { cache: "no-store" });
+  if (r.status === 204) return;
+  const data = await r.json();
+  latest = data.latest; config = data.config || null;
+  const at = latest.at;
+  // Initial history → setze Serie einmalig
+  if (!lastSeenAt && Array.isArray(data.history)) {
+    const hist = data.history;
+    percentSeries = hist.map(h => (h.percent!=null ? h.percent : clamp((h.raw/RAW_MAX)*100,0,100)));
+    if (percentSeries.length > MAX_POINTS) percentSeries = percentSeries.slice(-MAX_POINTS);
+    initChart(); applySeriesToChart(percentSeries);
+  }
+
+  // neuer Wert?
+  if (lastSeenAt !== at) {
+    lastSeenAt = at;
+    const p = asPercent(latest.raw);
+    shiftAnimateWith(p);
+    updateLive(latest.raw, latest.at);
+  }
+}
+
+initChart();  // Chart existiert sofort
 fetchSoil();
 setInterval(fetchSoil, POLL_MS);
 
-// ——— Calibration (2 Schritte)
+// ---- Calibration (2 Schritte, nur DRY/WET) ----
 function showStep(n){
   step = n;
   document.querySelectorAll(".modal .step").forEach(sec => {
     sec.hidden = Number(sec.dataset.step) !== n;
   });
-  document.querySelectorAll(".steps-dots .dot").forEach(dot => {
+  document.querySelectorAll(".steps-dots .dot").forEach(dot=>{
     dot.classList.toggle("active", Number(dot.dataset.step) === n);
   });
   els.prevStep.style.visibility = (n===1) ? "hidden" : "visible";
@@ -148,26 +169,31 @@ els.useDryNow.onclick = () => { if (latest) els.dryInput.value = latest.raw; };
 els.useWetNow.onclick = () => { if (latest) els.wetInput.value = latest.raw; };
 
 els.saveCalib.onclick = async () => {
-  const dry = Number(els.dryInput.value);
-  const wet = Number(els.wetInput.value);
-  if (!Number.isFinite(dry) || !Number.isFinite(wet)) {
-    alert("Bitte DRY und WET als Zahlen eingeben/übernehmen.");
+  const rawDry = Number(els.dryInput.value);
+  const rawWet = Number(els.wetInput.value);
+  if (!Number.isFinite(rawDry) || !Number.isFinite(rawWet)) {
+    alert("Bitte RAW trocken & RAW nass eingeben oder übernehmen.");
     return;
   }
   const resp = await fetch("/api/calibrate", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ sensorId: SENSOR_ID, rawDry: dry, rawWet: wet })
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sensorId: SENSOR_ID, rawDry, rawWet })
   });
-  if (resp.ok) { els.modal.close(); await fetchSoil(); }
-  else { alert("Kalibrierung fehlgeschlagen."); }
+  if (resp.ok) {
+    els.modal.close();
+    // re-fetch Config & Latest
+    lastSeenAt = null; // force full apply
+    await fetchSoil();
+  } else {
+    alert("Kalibrierung fehlgeschlagen.");
+  }
 };
 
 els.resetCalib.onclick = async () => {
-  if (!confirm("Kalibrierung wirklich zurücksetzen?")) return;
+  if (!confirm("Kalibrierung zurücksetzen?")) return;
   await fetch("/api/calibrate", {
-    method:"POST", headers:{"Content-Type":"application/json"},
+    method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ sensorId: SENSOR_ID, reset: true })
   });
-  await fetchSoil();
+  lastSeenAt = null; await fetchSoil();
 };

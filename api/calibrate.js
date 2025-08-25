@@ -32,10 +32,11 @@ export default async function handler(req, res) {
 
   if (reset) { await r.del(key); return res.status(200).json({ ok:true, reset:true }); }
 
-  const prev = (await r.get(key)) ? JSON.parse(await r.get(key)) : {};
+  const prev = await r.get(key);
+  const old = prev ? JSON.parse(prev) : {};
   const cfg = {
-    rawDry: Number.isFinite(rawDry) ? rawDry : (prev.rawDry ?? null),
-    rawWet: Number.isFinite(rawWet) ? rawWet : (prev.rawWet ?? null),
+    rawDry: Number.isFinite(rawDry) ? rawDry : (old.rawDry ?? null),
+    rawWet: Number.isFinite(rawWet) ? rawWet : (old.rawWet ?? null),
     updatedAt: new Date().toISOString()
   };
   await r.set(key, JSON.stringify(cfg));
