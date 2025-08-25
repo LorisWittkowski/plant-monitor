@@ -2,13 +2,13 @@
   --bg:#0b0b0c; --fg:#f2f2f3; --muted:#9a9a9b;
   --card:#111213; --stroke:#1b1b1c; --bar-bg:#141516;
   --focus:#cfcfd1; --shadow:0 10px 28px rgba(0,0,0,.35);
-  --fg-strong:#ffffff;        /* Linie im Darkmode */
+  --fg-strong:#ffffff;        /* kräftige Linienfarbe im Darkmode */
 }
 :root[data-theme="light"]{
   --bg:#f7f7f8; --fg:#0b0b0c; --muted:#61656a;
   --card:#ffffff; --stroke:#e5e7eb; --bar-bg:#ededf0;
   --focus:#1b1b1c; --shadow:0 8px 24px rgba(0,0,0,.08);
-  --fg-strong:#222222;        /* Linie im Lightmode */
+  --fg-strong:#222222;        /* kräftige Linienfarbe im Lightmode */
 }
 
 /* Base */
@@ -20,51 +20,45 @@ html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);
 
 /* Header & Buttons */
 .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-.brand{font-weight:700;letter-spacing:.3px;font-size:14px} /* 1) kleiner & cleaner */
+.brand{font-weight:800;letter-spacing:.4px}
 .actions{display:flex;gap:8px}
 .btn{background:var(--card);color:var(--fg);border:1px solid var(--stroke);padding:8px 12px;border-radius:12px;cursor:pointer}
 .btn:hover{filter:brightness(1.08)}
-.btn.primary{background:var(--fg);color:var(--bg);font-weight:600} /* 2) Primärbutton */
+.btn.primary{background:var(--fg);color:var(--bg);font-weight:600}
 .btn.primary:hover{filter:brightness(.92)}
 .btn.icon{width:36px;height:36px;display:grid;place-items:center;padding:0}
 .btn.ghost{background:transparent}
-
-.ico{display:none}
-:root[data-theme="light"] .sun{display:block}
-:root[data-theme="dark"] .moon{display:block}
 
 /* Grid & Cards */
 .grid.one{display:grid;grid-template-columns:1fr;margin-top:12px}
 .card{background:var(--card);border:1px solid var(--stroke);border-radius:16px;padding:14px;box-shadow:var(--shadow)}
 .card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-.section-title h2{position:relative;margin:0 0 6px;font-size:16px;color:var(--fg)} /* 5) Titel klarer */
-.section-title h2::after{content:"";display:block;margin-top:6px;height:1px;background:var(--stroke);opacity:.7;border-radius:1px}
+h2{margin:0;font-size:16px;color:var(--fg)}
 
-/* Info-Form */
+/* Info */
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .form-grid .full{grid-column:1/-1}
 .field{display:grid;gap:6px}
-.field span{color:var(--muted);font-size:12px;opacity:.95} /* 8) dezenter */
-input,textarea{
-  width:100%;background:var(--card);color:var(--fg);border:1px solid var(--stroke);
-  border-radius:14px; /* 7) stärker gerundet */
-  padding:12px 12px;  /* 6) mehr Padding */
-  font-family:inherit
-}
+.field span{color:var(--muted);font-size:12px}
+input,textarea{width:100%;background:var(--card);color:var(--fg);border:1px solid var(--stroke);border-radius:10px;padding:8px 10px;font-family:inherit}
 :root[data-theme="light"] input,:root[data-theme="light"] textarea{background:#fff}
 textarea{resize:vertical}
 
 /* Live */
 .live{display:grid;gap:10px}
 .live-top{display:flex;align-items:end;justify-content:space-between}
-.value{font-size:54px;font-weight:800;letter-spacing:.6px}
-.sub{color:var(--muted);font-size:12px;white-space:nowrap} /* 12) dezenter */
+.value{font-size:54px;font-weight:800;letter-spacing:.6px;transition:transform 180ms ease}
+/* Kalibrierungs-Anzeige in der Live-Kachel */
+.sub.meta{ margin-top:4px; color:var(--muted); font-size:12px }
+.sub.meta .dim{ opacity:.7; margin-left:8px }
+.sub{color:var(--muted);font-size:12.5px;white-space:nowrap}
 .sub .sep{display:inline-block;width:1px;height:12px;background:var(--stroke);margin:0 8px;vertical-align:-1px}
 .bar{position:relative;height:18px;background:var(--bar-bg);border-radius:999px;overflow:hidden;border:1px solid var(--stroke)}
 .bar-fill{height:100%;width:0%;background:var(--fg);border-radius:999px;transition:width 260ms cubic-bezier(.2,.8,.2,1)}
 
 /* Chart */
-.chart-card{padding:10px 12px 18px} /* 19) etwas mehr unten */
+.chart-card{padding:10px 12px}
+.chart-card .range{display:flex;gap:8px}
 .chart-card canvas{
   display:block;
   width:100% !important;
@@ -72,26 +66,15 @@ textarea{resize:vertical}
   max-height: 320px !important;
 }
 
-/* Segmented Control (17) */
-.segmented{
-  display:inline-flex;border:1px solid var(--stroke);border-radius:999px;overflow:hidden;background:var(--card)
-}
-.segmented .btn{
-  border:none;background:transparent;border-radius:0;padding:8px 12px;min-width:88px
-}
-.segmented .btn[aria-selected="true"]{
-  background:var(--fg);color:var(--bg);font-weight:600
-}
-.segmented .btn + .btn{border-left:1px solid var(--stroke)}
-
-/* Modal (Kontrast sicher) */
+/* Modal (Kontrast sicher in Dark/Light) */
 .modal{border:none;background:transparent;opacity:0;transition:opacity .18s ease}
 .modal[open]{opacity:1}
 .modal::backdrop{background:rgba(0,0,0,.55);backdrop-filter:blur(2px);opacity:0;transition:opacity .18s ease}
 .modal[open]::backdrop{opacity:1}
 .modal-card{
   width:min(520px,94vw);background:var(--card);border:1px solid var(--stroke);
-  border-radius:14px;box-shadow:var(--shadow);padding-bottom:6px;color:var(--fg);
+  border-radius:14px;box-shadow:var(--shadow);padding-bottom:6px;
+  color: var(--fg); /* Alles im Dialog nutzt --fg */
   transform:translateY(6px);animation:slideIn .18s ease both
 }
 @keyframes slideIn{from{opacity:.6;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
@@ -99,7 +82,11 @@ textarea{resize:vertical}
 .steps-dots .dot{width:8px;height:8px;border-radius:50%;background:#2a2d33}
 :root[data-theme="light"] .steps-dots .dot{background:#e9eaee}
 .steps-dots .dot.active{background:var(--fg)}
-.modal-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--stroke);color:var(--fg)}
+.modal-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 12px;border-bottom:1px solid var(--stroke);
+  color: var(--fg);
+}
 .modal-head h3{margin:0;font-size:16px;font-weight:600;color:var(--fg)}
 .icon.close{background:transparent;border:none;color:var(--muted);font-size:22px;cursor:pointer}
 .modal-body{padding:14px;display:grid;gap:16px;color: var(--fg)}
