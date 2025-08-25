@@ -1,83 +1,85 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Soil Monitor</title>
+  <title>PLANT MONITOR</title>
   <link rel="stylesheet" href="assets/style.css">
-  <!-- Chart.js (CDN) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 </head>
 <body>
   <main class="container">
-    <header class="header">
-      <div class="brand">Soil<span class="dot">•</span>Monitor</div>
-      <div class="meta">Sensor: <span id="sensorId">soil-1</span></div>
+    <header class="head">
+      <h1>PLANT MONITOR</h1>
+      <hr>
+      <div class="meta-grid">
+        <div class="meta-line">NAME......<span id="plantName">—</span></div>
+        <div class="meta-line">PLANTED...<span id="plantDate">—</span></div>
+        <div class="meta-line">HEIGHT....<span id="plantHeight">—</span></div>
+      </div>
     </header>
 
-    <section class="grid">
-      <!-- Live Card -->
-      <article class="card live">
-        <div class="live-top">
-          <div class="value" id="value">—%</div>
-          <div class="sub">RAW <span id="raw">—</span> · <span id="ts">—</span></div>
-        </div>
+    <section class="status">
+      <hr>
+      <div id="advice" class="advice">—</div>
 
-        <div class="bar">
-          <div id="fill" class="bar-fill"></div>
+      <div class="meter">
+        <div class="meter-outer">
+          <div id="meterInner" class="meter-inner"><span id="meterPct">— %</span></div>
         </div>
+      </div>
 
-        <div class="actions">
-          <button id="calibBtn" class="btn primary">Kalibrieren</button>
-        </div>
-      </article>
-
-      <!-- Chart Card -->
-      <article class="card chart-card">
-        <canvas id="chart" height="220"></canvas>
-      </article>
+      <div class="active-line">ACTIVE — <span id="activeAt">—</span></div>
     </section>
+
+    <section class="chart-wrap">
+      <hr>
+      <div class="y-labels">
+        <span>WET</span>
+        <span>DRY</span>
+      </div>
+      <canvas id="chart" height="220"></canvas>
+    </section>
+
+    <footer class="foot">
+      <a href="#" id="openCalib" class="link">calibrate</a>
+      <span class="sep">|</span>
+      <span class="muted">sensor: <span id="sensorId">soil-1</span></span>
+    </footer>
   </main>
 
-  <!-- Calibration Modal (2 Schritte: DRY → WET) -->
+  <!-- Calibration (2 steps: DRY -> WET) -->
   <dialog id="calibModal" class="modal">
     <form method="dialog" class="modal-card">
-      <div class="steps-dots">
-        <span class="dot active" data-step="1"></span>
-        <span class="dot" data-step="2"></span>
-      </div>
-
+      <div class="dots"><span class="dot active" data-step="1"></span><span class="dot" data-step="2"></span></div>
       <header class="modal-head">
-        <h3>Kalibrierung</h3>
-        <button class="icon close" value="cancel" aria-label="Schließen">×</button>
+        <h3>CALIBRATION</h3>
+        <button class="close" value="cancel" aria-label="Close">×</button>
       </header>
-
       <div class="modal-body">
         <section class="step" data-step="1">
-          <h4>Schritt 1 · Trocken (DRY)</h4>
-          <p>Sensor trocken (Luft/trockene Erde). Aktuellen RAW übernehmen oder manuell eingeben.</p>
+          <h4>STEP 1 — DRY</h4>
+          <p>Hold the sensor dry (air / dry soil). Take current RAW or type it.</p>
           <div class="row">
-            <input id="dryInput" type="number" inputmode="numeric" placeholder="RAW trocken">
-            <button id="useDryNow" class="btn ghost" type="button">Aktuell übernehmen</button>
+            <input id="dryInput" type="number" inputmode="numeric" placeholder="RAW dry">
+            <button id="useDryNow" class="btn ghost" type="button">use current</button>
           </div>
         </section>
-
         <section class="step" data-step="2" hidden>
-          <h4>Schritt 2 · Nass (WET)</h4>
-          <p>Sensor in Wasser tauchen. Aktuellen RAW übernehmen oder manuell eingeben.</p>
+          <h4>STEP 2 — WET</h4>
+          <p>Dip the sensor into water. Take current RAW or type it.</p>
           <div class="row">
-            <input id="wetInput" type="number" inputmode="numeric" placeholder="RAW nass">
-            <button id="useWetNow" class="btn ghost" type="button">Aktuell übernehmen</button>
+            <input id="wetInput" type="number" inputmode="numeric" placeholder="RAW wet">
+            <button id="useWetNow" class="btn ghost" type="button">use current</button>
           </div>
         </section>
       </div>
-
       <footer class="modal-foot">
-        <button id="prevStep" class="btn ghost" type="button">Zurück</button>
+        <button id="prevStep" class="btn ghost" type="button">back</button>
         <div class="spacer"></div>
-        <button id="nextStep" class="btn" type="button">Weiter</button>
-        <button id="saveCalib" class="btn primary" type="button" hidden>Speichern</button>
-        <button id="resetCalib" class="btn danger ghost" type="button">Zurücksetzen</button>
+        <button id="nextStep" class="btn" type="button">next</button>
+        <button id="saveCalib" class="btn primary" type="button" hidden>save</button>
+        <button id="resetCalib" class="btn danger ghost" type="button">reset</button>
       </footer>
     </form>
   </dialog>
