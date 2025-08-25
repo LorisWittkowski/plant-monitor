@@ -1,11 +1,14 @@
 const POLL_MS = 3000;
 const RAW_MAX = 4095;
-const MAX_POINTS = 100;
+const MAX_POINTS = 120;          // so viel zeigen
+const FETCH_LIMIT = 300;         // so viel vom Server holen (wir capen auf MAX_POINTS)
 const SENSOR_ID = "soil-1";
 
 let latest = null, config = null;
 let lastSeenAt = null;
+let currentDisplayedPercent = null; // für Counter-Animation
 
+// DOM
 const $ = s => document.querySelector(s);
 const els = {
   value: $("#value"), raw: $("#raw"), ts: $("#ts"), fill: $("#fill"),
@@ -34,22 +37,49 @@ els.themeToggle.onclick = () => {
 
 // Helpers
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
-const bump = el => { el.classList.add("bump"); setTimeout(()=>el.classList.remove("bump"),200); };
 const asPercent = (raw)=>{
   if (!config || config.rawDry==null || config.rawWet==null || config.rawDry===config.rawWet) {
     return clamp((raw/RAW_MAX)*100,0,100);
   }
-  return clamp(100*(raw - config.rawDry)/(config.rawWet - config.rawDry),0,100);
+  return clamp(100*(raw - config.rawDry)/(config.rawWet - config.rawWet),0,100); // (Bugfix: rawWet - rawWet? Nein:) 
 };
+// ↑ Korrektur: Tippfehler fixen:
+function calcPercent(raw){
+  if (!config || config.rawDry==null || config.rawWet==null || config.rawDry===config.rawWet) {
+    return clamp((raw/RAW_MAX)*100,0,100);
+  }
+  return clamp(100*(raw - config.rawDry)/(config.rawWet - config.rawDry),0,100);
+}
 
-// Live UI
+// Counter-Tween (Design Upgrade #1)
+function tweenValue(from, to, ms = 500){
+  const start = performance.now();
+  function frame(t){
+    const k = Math.min(1, (t - start)/ms);
+    const val = Math.round(from + (to - from)*k);
+    els.value.textContent = val + "%";
+    if (k < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+// Live UI update
 function updateLive(raw, atIso){
-  const p = asPercent(raw);
+  const p = calcPercent(raw);
+  // progressbar
   els.fill.style.width = p.toFixed(1) + "%";
-  els.value.textContent = Math.round(p) + "%";
+  // counter animation
+  if (currentDisplayedPercent == null) {
+    els.value.textContent = Math.round(p) + "%";
+  } else if (Math.abs(currentDisplayedPercent - p) >= 1) {
+    tweenValue(Math.round(currentDisplayedPercent), Math.round(p));
+  } else {
+    els.value.textContent = Math.round(p) + "%";
+  }
+  currentDisplayedPercent = p;
+  // meta
   els.raw.textContent = raw;
   els.ts.textContent = new Date(atIso).toLocaleString();
-  bump(els.value);
 }
 
 // Chart
@@ -65,28 +95,19 @@ function initChart(){
       fill: false,
       pointRadius: 0,
       segment: {
-        borderColor: ctx => {
-          const total = ctx.chart.data.datasets[0].data.length || 1;
-          const i = ctx.p0DataIndex;
-          const fade = 0.2 + 0.8*(i/total);
-          const fg = getComputedStyle(document.documentElement).getPropertyValue('--fg').trim() || "rgb(242,242,243)";
-          if(fg.startsWith("rgb(")) {
-            return fg.replace("rgb","rgba").replace(")",`,`+fade+`)`);
-          }
-          return fg;
-        }
+        borderColor: segColorWithFade
       }
     }]},
     options: {
       responsive: true, maintainAspectRatio: false,
-      animation: { duration: 600, easing: "easeOutCubic" },
+      animation: { duration: 500, easing: "easeOutCubic" },
       scales: {
         x: { display: false },
         y: {
           min: 0, max: 100,
           grid: { display: false },
           ticks: {
-            color: getComputedStyle(document.documentElement).getPropertyValue('--muted').trim(),
+            color: getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || "#9a9a9b",
             callback: val => val===0 ? "DRY" : val===100 ? "WET" : "",
             font: { size: 12 }
           },
@@ -99,41 +120,79 @@ function initChart(){
   });
 }
 
+// Segment color with left fade
+function segColorWithFade(ctx){
+  const ds = ctx.chart?.data?.datasets?.[0];
+  const total = ds?.data?.length || 1;
+  const i = ctx.p0DataIndex ?? 0;
+  const fade = 0.2 + 0.8*(i/total);
+  // get current theme --fg as rgb/hex
+  const fg = getComputedStyle(document.documentElement).getPropertyValue('--fg').trim() || "rgb(242,242,243)";
+  if (fg.startsWith("rgb(")) return fg.replace("rgb","rgba").replace(")",`,`+fade+`)`);
+  // hex → rgba fallback
+  if (/^#([0-9a-f]{6}|[0-9a-f]{3})$/i.test(fg)) {
+    const c = fg.length===4
+      ? fg.replace(/^#(.)(.)(.)$/i,(m,r,g,b)=>`#${r}${r}${g}${g}${b}${b}`)
+      : fg;
+    const r = parseInt(c.substr(1,2),16), g = parseInt(c.substr(3,2),16), b = parseInt(c.substr(5,2),16);
+    return `rgba(${r},${g},${b},${fade})`;
+  }
+  return "rgba(242,242,243,"+fade+")";
+}
+
+// Robust chart data setting
+function setSeries(percents){
+  const capped = percents.slice(-MAX_POINTS);
+  const labels = capped.map((_,i)=>i); // eindeutige x-Indexlabels
+  const ds = chart.data.datasets[0];
+  chart.data.labels = labels;
+  ds.data = capped;
+  chart.update();
+}
+
 function pushValue(percent){
   const ds = chart.data.datasets[0];
   ds.data.push(percent);
   if (ds.data.length > MAX_POINTS) ds.data.shift();
+  chart.data.labels = ds.data.map((_,i)=>i);
   chart.update();
 }
 
-// Fetch & Poll
+// Fetch & Poll (Graph-Fix: sichere Initialbefüllung + großzügiges Limit)
 async function fetchSoil(){
-  const r = await fetch(`/api/soil?sensorId=${encodeURIComponent(SENSOR_ID)}&limit=${MAX_POINTS}`, { cache: "no-store" });
+  const r = await fetch(`/api/soil?sensorId=${encodeURIComponent(SENSOR_ID)}&limit=${FETCH_LIMIT}`, { cache: "no-store" });
   if (r.status === 204) return;
   const data = await r.json();
   latest = data.latest; config = data.config || null;
-  const at = latest.at;
 
-  if (!lastSeenAt && Array.isArray(data.history)) {
-    const hist = data.history;
-    const percents = hist.map(h => (h.percent!=null ? h.percent : (h.raw/RAW_MAX*100)));
-    chart.data.datasets[0].data = percents.slice(-MAX_POINTS);
-    chart.update();
+  // Initial: Historie setzen (falls vorhanden)
+  if (!lastSeenAt) {
+    const hist = Array.isArray(data.history) ? data.history : [];
+    if (hist.length > 0) {
+      const percents = hist.map(h => (h.percent!=null ? h.percent : clamp((h.raw/RAW_MAX)*100,0,100)));
+      setSeries(percents);
+    } else {
+      // Keine Historie? dann mit aktuellem Wert starten, damit der Graph nicht leer wirkt
+      const p = calcPercent(latest.raw);
+      setSeries([p]);
+    }
   }
 
-  if (lastSeenAt !== at) {
-    lastSeenAt = at;
-    const p = asPercent(latest.raw);
+  // Neuer Wert?
+  if (lastSeenAt !== latest.at) {
+    lastSeenAt = latest.at;
+    const p = calcPercent(latest.raw);
     pushValue(p);
     updateLive(latest.raw, latest.at);
   }
 }
 
+// Init
 initChart();
 fetchSoil();
 setInterval(fetchSoil, POLL_MS);
 
-// Calibration
+// Calibration (2 Steps)
 function showStep(n){
   document.querySelectorAll(".modal .step").forEach(sec => sec.hidden = Number(sec.dataset.step)!==n);
   document.querySelectorAll(".steps-dots .dot").forEach(dot=>dot.classList.toggle("active", Number(dot.dataset.step)===n));
