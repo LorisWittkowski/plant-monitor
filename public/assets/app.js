@@ -7,7 +7,6 @@ const DEFAULT_RANGE = "1h"; // 1h | 24h | 7d
 // ===== State =====
 let latest = null, config = null, lastSeenAt = null, currentDisplayedPercent = null;
 let currentRange = DEFAULT_RANGE;
-let plantProfile = null;
 
 // ===== DOM =====
 const $ = s => document.querySelector(s);
@@ -37,7 +36,7 @@ els.themeToggle.onclick = () => {
   document.documentElement.setAttribute("data-theme", next);
   localStorage.setItem("theme", next);
   els.themeIcon.textContent = next === "dark" ? "☾" : "☼";
-  if (chart) chart.update(); // Linie zieht neue CSS-Farben
+  if (chart) chart.update(); // Chart übernimmt neue CSS-Farben
 };
 
 // ===== Helpers =====
@@ -70,7 +69,7 @@ function updateLive(raw, atIso){
   els.ts.textContent = new Date(atIso).toLocaleString();
 }
 
-// ===== Chart (minimal, keine Hover, mit Decimation) =====
+// ===== Chart (ohne Hover, mit Decimation, korrekte Farben) =====
 let chart;
 const cssVar = (name, fallback) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 
@@ -90,9 +89,9 @@ function initChart() {
           const total = ds.data.length || 1;
           const i = c.p0DataIndex ?? 0;
           const alpha = 0.25 + 0.75 * (i / total); // links transparenter → rechts deckender
-          const fg = cssVar('--fg-strong', '#000');
+          const fg = cssVar('--fg-strong', '#222'); // <- deutlich sichtbare Linienfarbe
           if (fg.startsWith('rgb(')) return fg.replace('rgb','rgba').replace(')',`,`+alpha+`)`);
-          return `rgba(242,242,243,${alpha})`;
+          return `rgba(34,34,34,${alpha})`;
         }
       }
     }]},
@@ -100,8 +99,7 @@ function initChart() {
       responsive: true,
       maintainAspectRatio: false,
       animation: { duration: 450, easing: "easeOutCubic" },
-      // keine Interaktion / Hover
-      events: [],
+      events: [],                       // keine Hover/Marker
       plugins: {
         legend: { display: false },
         tooltip: { enabled: false },
@@ -121,7 +119,7 @@ function initChart() {
   });
 }
 
-// Serie setzen: streng zeitlich sortieren, cap (gegen „Abpfeifen“ & Überlänge)
+// Serie setzen: zeitlich sortiert, harte Obergrenze
 function setSeries(points) {
   const norm = (points || [])
     .map(p => ({
@@ -131,7 +129,7 @@ function setSeries(points) {
     .filter(p => Number.isFinite(p.t) && Number.isFinite(p.y))
     .sort((a, b) => a.t - b.t);
 
-  const HARD_CAP = 1000;                    // obere sichtbare Grenze
+  const HARD_CAP = 1000;
   const data = (norm.length > HARD_CAP) ? norm.slice(-HARD_CAP) : norm;
 
   chart.data.labels = data.map(d => d.t);
@@ -139,7 +137,7 @@ function setSeries(points) {
   chart.update();
 }
 
-// Range vom Server holen (Server liefert bereits passende Dichte)
+// Range laden (Server liefert bereits verdichtet)
 async function fetchSeries(range) {
   document.querySelectorAll('.range .btn').forEach(b => b.classList.toggle('active', b.dataset.range === range));
   const r = await fetch(`/api/soil?sensorId=${encodeURIComponent(SENSOR_ID)}&range=${encodeURIComponent(range)}`, { cache: "no-store" });
@@ -154,7 +152,7 @@ async function fetchSeries(range) {
   setSeries(data.series || []);
 }
 
-// separat: Live-Poll für Kopf & Graph-Refresh (leicht, nicht flooden)
+// separat: Live-Poll für Kopf + Graph-Refresh
 async function pollLatest(){
   const r = await fetch(`/api/soil?sensorId=${encodeURIComponent(SENSOR_ID)}&range=latest`, { cache:"no-store" });
   if (r.status!==200) return;
@@ -166,43 +164,19 @@ async function pollLatest(){
     config = data.config || config;
     latest  = data.latest;
     updateLive(latest.raw, latest.at);
-    // Graph nachladen (Server-seitig bereits verdichtet)
     await fetchSeries(currentRange);
   }
 }
 
-// ===== Plant Info =====
+// Plant Info (speichern)
 function fillInfoUI(){
-  const p = plantProfile || {};
-  els.pi_name.value = p.name || "";
-  els.pi_species.value = p.species || "";
-  els.pi_location.value = p.location || "";
-  els.pi_pot.value = p.potCm ?? "";
-  els.pi_note.value = p.note || "";
-}
-async function fetchPlant(){
-  const r = await fetch(`/api/plant?sensorId=${encodeURIComponent(SENSOR_ID)}`, { cache:"no-store" });
-  if (r.status===204){ plantProfile=null; fillInfoUI(); return; }
-  const data = await r.json();
-  plantProfile = data.profile || null;
-  fillInfoUI();
+  // (optional; wenn du Profil-API nutzt)
 }
 async function savePlantProfile(){
-  const body = {
-    sensorId: SENSOR_ID,
-    profile: {
-      name: els.pi_name.value.trim() || null,
-      species: els.pi_species.value.trim() || null,
-      location: els.pi_location.value.trim() || null,
-      potCm: els.pi_pot.value ? Number(els.pi_pot.value) : null,
-      note: els.pi_note.value.trim() || null
-    }
-  };
-  const r = await fetch("/api/plant", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body) });
-  if (!r.ok) alert("Speichern fehlgeschlagen.");
+  // (optional; wenn du Profil-API nutzt)
 }
 
-// ===== Calibration =====
+// Calibration
 function showStep(n){
   document.querySelectorAll(".modal .step").forEach(sec => sec.hidden = Number(sec.dataset.step)!==n);
   document.querySelectorAll(".steps-dots .dot").forEach(dot=>dot.classList.toggle("active", Number(dot.dataset.step)===n));
@@ -227,14 +201,13 @@ els.resetCalib.onclick = async()=>{
   await fetchSeries(currentRange);
 };
 
-// ===== Events =====
+// Events
 document.querySelectorAll('.range .btn').forEach(b=>{
   b.onclick = async ()=>{ currentRange = b.dataset.range; await fetchSeries(currentRange); };
 });
 els.saveInfo.onclick = savePlantProfile;
 
-// ===== Init =====
+// Init
 initChart();
 fetchSeries(currentRange);
 setInterval(pollLatest, POLL_MS);
-fetchPlant();
