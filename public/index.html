@@ -19,142 +19,94 @@
       </div>
     </header>
 
-    <!-- TOP ROW: Live (left) + Plant Info (right) -->
-    <section class="grid two">
-      <!-- Live Card -->
+    <!-- 1) Pflanzen-Daten -->
+    <section class="grid one">
+      <article class="card info">
+        <div class="card-head">
+          <h2>Pflanzen­daten</h2>
+          <button id="saveInfo" class="btn">Speichern</button>
+        </div>
+        <div class="form-grid">
+          <label class="field"><span>Name</span><input id="pi_name" type="text" placeholder="z. B. Fensterbank links" /></label>
+          <label class="field"><span>Art</span><input id="pi_species" type="text" placeholder="z. B. Monstera deliciosa" /></label>
+          <label class="field"><span>Standort</span><input id="pi_location" type="text" placeholder="z. B. Wohnzimmer" /></label>
+          <label class="field"><span>Topfgröße (cm)</span><input id="pi_pot" type="number" inputmode="numeric" placeholder="z. B. 18" /></label>
+          <label class="field full"><span>Notiz</span><textarea id="pi_note" rows="2" placeholder="kurze Notiz…"></textarea></label>
+        </div>
+      </article>
+    </section>
+
+    <!-- 2) Live-Kachel -->
+    <section class="grid one">
       <article class="card live">
         <div class="live-top">
           <div class="value" id="value">—%</div>
-          <div class="sub">
-            RAW <span id="raw">—</span>
-            <span class="sep"></span>
-            <span id="ts">—</span>
-          </div>
+          <div class="sub">RAW <span id="raw">—</span><span class="sep"></span><span id="ts">—</span></div>
         </div>
         <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100">
           <div id="fill" class="bar-fill"></div>
         </div>
       </article>
-
-      <!-- Plant Info Card -->
-      <article class="card info">
-        <div class="card-head">
-          <h2>Pflanzeninfo</h2>
-          <button id="saveInfo" class="btn">Speichern</button>
-        </div>
-
-        <div class="form-grid">
-          <label class="field">
-            <span>Name</span>
-            <input id="pi_name" type="text" placeholder="z. B. Fensterbank links" />
-          </label>
-          <label class="field">
-            <span>Art</span>
-            <input id="pi_species" type="text" placeholder="z. B. Monstera deliciosa" />
-          </label>
-          <label class="field">
-            <span>Standort</span>
-            <input id="pi_location" type="text" placeholder="z. B. Wohnzimmer" />
-          </label>
-          <label class="field">
-            <span>Topfgröße (cm)</span>
-            <input id="pi_pot" type="number" inputmode="numeric" placeholder="z. B. 18" />
-          </label>
-          <label class="field full">
-            <span>Notiz</span>
-            <textarea id="pi_note" rows="2" placeholder="kurze Notiz…"></textarea>
-          </label>
-        </div>
-
-        <div class="log-head">
-          <h3>Pflege-Log</h3>
-          <button id="addLog" class="btn ghost">Eintrag hinzufügen</button>
-        </div>
-        <ul id="logList" class="log-list"></ul>
-      </article>
     </section>
 
-    <!-- BIG CHART BELOW -->
+    <!-- 3) Großer Graph -->
     <section class="grid one">
       <article class="card chart-card big">
+        <div class="card-head">
+          <h2>Historie</h2>
+          <div class="range">
+            <button class="btn ghost" data-range="1h">Letzte Stunde</button>
+            <button class="btn ghost" data-range="24h">24 h</button>
+            <button class="btn ghost" data-range="7d">7 Tage</button>
+          </div>
+        </div>
         <div class="ylabels">
           <span class="lbl top">WET</span>
           <span class="lbl bot">DRY</span>
         </div>
-        <canvas id="chart" height="320"></canvas>
+        <canvas id="chart" height="340"></canvas>
+      </article>
+    </section>
+
+    <!-- 4) Notizen -->
+    <section class="grid one">
+      <article class="card notes">
+        <div class="card-head">
+          <h2>Notizen</h2>
+          <div class="note-add">
+            <input id="noteText" placeholder="Neue Notiz…" />
+            <button id="addNote" class="btn primary">Hinzufügen</button>
+          </div>
+        </div>
+        <ul id="notesList" class="notes-list"></ul>
       </article>
     </section>
   </main>
 
-  <!-- Calibration Modal -->
+  <!-- Kalibrierung -->
   <dialog id="calibModal" class="modal">
     <form method="dialog" class="modal-card" aria-labelledby="modalTitle">
-      <div class="steps-dots" aria-hidden="true">
-        <span class="dot active" data-step="1"></span>
-        <span class="dot" data-step="2"></span>
-      </div>
-
-      <header class="modal-head">
-        <h3 id="modalTitle">Kalibrierung</h3>
-        <button class="icon close" value="cancel" aria-label="Schließen">×</button>
-      </header>
-
+      <div class="steps-dots" aria-hidden="true"><span class="dot active" data-step="1"></span><span class="dot" data-step="2"></span></div>
+      <header class="modal-head"><h3 id="modalTitle">Kalibrierung</h3><button class="icon close" value="cancel" aria-label="Schließen">×</button></header>
       <div class="modal-body">
         <section class="step" data-step="1">
           <h4>Schritt 1 · Trocken (DRY)</h4>
-          <p>Sensor trocken (Luft/trockene Erde). Aktuellen RAW übernehmen oder manuell eintragen.</p>
-          <div class="row">
-            <input id="dryInput" type="number" inputmode="numeric" placeholder="RAW trocken" aria-label="RAW trocken">
-            <button id="useDryNow" class="btn ghost" type="button">Aktuell übernehmen</button>
-          </div>
+          <p>Sensor trocken. Aktuellen RAW übernehmen oder manuell eintragen.</p>
+          <div class="row"><input id="dryInput" type="number" inputmode="numeric" placeholder="RAW trocken">
+            <button id="useDryNow" class="btn ghost" type="button">Aktuell übernehmen</button></div>
         </section>
-
         <section class="step" data-step="2" hidden>
           <h4>Schritt 2 · Nass (WET)</h4>
-          <p>Sensor in Wasser tauchen. Aktuellen RAW übernehmen oder manuell eintragen.</p>
-          <div class="row">
-            <input id="wetInput" type="number" inputmode="numeric" placeholder="RAW nass" aria-label="RAW nass">
-            <button id="useWetNow" class="btn ghost" type="button">Aktuell übernehmen</button>
-          </div>
+          <p>Sensor in Wasser. Aktuellen RAW übernehmen oder manuell eintragen.</p>
+          <div class="row"><input id="wetInput" type="number" inputmode="numeric" placeholder="RAW nass">
+            <button id="useWetNow" class="btn ghost" type="button">Aktuell übernehmen</button></div>
         </section>
       </div>
-
       <footer class="modal-foot">
-        <button id="prevStep" class="btn ghost" type="button">Zurück</button>
-        <div class="spacer"></div>
+        <button id="prevStep" class="btn ghost" type="button">Zurück</button><div class="spacer"></div>
         <button id="nextStep" class="btn" type="button">Weiter</button>
         <button id="saveCalib" class="btn primary" type="button" hidden>Speichern</button>
         <button id="resetCalib" class="btn danger ghost" type="button">Zurücksetzen</button>
-      </footer>
-    </form>
-  </dialog>
-
-  <!-- Add Log Modal -->
-  <dialog id="logModal" class="modal">
-    <form method="dialog" class="modal-card" aria-labelledby="logTitle">
-      <header class="modal-head">
-        <h3 id="logTitle">Pflege-Eintrag</h3>
-        <button class="icon close" value="cancel" aria-label="Schließen">×</button>
-      </header>
-      <div class="modal-body">
-        <div class="form-grid">
-          <label class="field">
-            <span>Aktion</span>
-            <input id="log_action" placeholder="z. B. Gegossen" />
-          </label>
-          <label class="field">
-            <span>Menge</span>
-            <input id="log_amount" placeholder="z. B. 250 ml" />
-          </label>
-          <label class="field full">
-            <span>Notiz</span>
-            <textarea id="log_note" rows="2" placeholder="optional…"></textarea>
-          </label>
-        </div>
-      </div>
-      <footer class="modal-foot">
-        <div class="spacer"></div>
-        <button id="saveLog" class="btn primary" type="button">Speichern</button>
       </footer>
     </form>
   </dialog>
