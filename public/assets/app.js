@@ -115,7 +115,7 @@ function initChart(){
         y:{ grid:{display:false}, ticks:{display:false},
             border:{ display:true, color: cssVar('--muted','#9a9a9b') } }
       },
-      layout:{ padding:6 }
+        layout:{ padding:{ top:18, bottom:12, left:6, right:6 } }
     }
   });
 }
@@ -152,17 +152,19 @@ function setSeries(points){
   chart.data.datasets[0].data = data.map(d=>d.y);
 
   const vals = data.map(d=>d.y).filter(v=>typeof v==="number" && isFinite(v));
-  if (vals.length){
-    const minV = Math.max(0, Math.min(...vals));
-    const maxV = Math.min(100, Math.max(...vals));
-    const spread = Math.max(2, maxV-minV);
-    const pad = Math.min(6, Math.max(2, spread*0.08));
-    chart.options.scales.y.min = Math.max(0, Math.floor((minV-pad)*10)/10);
-    chart.options.scales.y.max = Math.min(100, Math.ceil((maxV+pad)*10)/10);
-  } else {
-    chart.options.scales.y.min = 0;
-    chart.options.scales.y.max = 100;
-  }
+    if (vals.length){
+      const minV = Math.max(0, Math.min(...vals));
+      const maxV = Math.min(100, Math.max(...vals));
+      const spread = Math.max(2, maxV-minV);
+
+      const pad = Math.max(3, spread * 0.12); // mehr "Luft" oben/unten
+      chart.options.scales.y.min = Math.max(0, Math.floor((minV - pad) * 10) / 10);
+      chart.options.scales.y.max = Math.min(100, Math.ceil((maxV + pad) * 10) / 10);
+    } else {
+      chart.options.scales.y.min = 0;
+      chart.options.scales.y.max = 100;
+    }
+
 
   const nonNull = vals.length;
   chart.data.datasets[0].pointRadius = (nonNull < 2) ? 3 : 0;
