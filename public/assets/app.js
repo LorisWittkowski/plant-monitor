@@ -69,7 +69,7 @@ function updateLive(raw, atIso){
   els.ts.textContent = new Date(atIso).toLocaleString();
 }
 
-// ===== Chart (ohne Hover, mit Decimation, korrekte Farben) =====
+// ===== Chart (ohne Hover, starke Farbe, robuster Fallback) =====
 let chart;
 const cssVar = (name, fallback) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 
@@ -83,16 +83,10 @@ function initChart() {
       tension: 0.35,
       fill: false,
       pointRadius: 0,
-      segment: {
-        borderColor: (c) => {
-          const ds = c.chart.data.datasets[0];
-          const total = ds.data.length || 1;
-          const i = c.p0DataIndex ?? 0;
-          const alpha = 0.25 + 0.75 * (i / total); // links transparenter → rechts deckender
-          const fg = cssVar('--fg-strong', '#222'); // <- deutlich sichtbare Linienfarbe
-          if (fg.startsWith('rgb(')) return fg.replace('rgb','rgba').replace(')',`,`+alpha+`)`);
-          return `rgba(34,34,34,${alpha})`;
-        }
+      borderColor: () => {
+        // kräftige, gut sichtbare Linienfarbe in beiden Themes
+        const fgStrong = cssVar('--fg-strong', '#222');
+        return fgStrong;
       }
     }]},
     options: {
@@ -119,7 +113,7 @@ function initChart() {
   });
 }
 
-// Serie setzen: zeitlich sortiert, harte Obergrenze
+// Serie setzen: zeitlich sortiert, harte Obergrenze, Fallback wenn leer
 function setSeries(points) {
   const norm = (points || [])
     .map(p => ({
@@ -128,6 +122,13 @@ function setSeries(points) {
     }))
     .filter(p => Number.isFinite(p.t) && Number.isFinite(p.y))
     .sort((a, b) => a.t - b.t);
+
+  // Fallback: Falls leer, aber latest existiert → zeige wenigstens einen Punkt
+  if (norm.length === 0 && latest) {
+    const t = new Date(latest.at).getTime();
+    const y = (latest.percent != null) ? latest.percent : (latest.raw / RAW_MAX * 100);
+    norm.push({ t, y });
+  }
 
   const HARD_CAP = 1000;
   const data = (norm.length > HARD_CAP) ? norm.slice(-HARD_CAP) : norm;
@@ -140,41 +141,44 @@ function setSeries(points) {
 // Range laden (Server liefert bereits verdichtet)
 async function fetchSeries(range) {
   document.querySelectorAll('.range .btn').forEach(b => b.classList.toggle('active', b.dataset.range === range));
-  const r = await fetch(`/api/soil?sensorId=${encodeURIComponent(SENSOR_ID)}&range=${encodeURIComponent(range)}`, { cache: "no-store" });
-  if (r.status === 204) { setSeries([]); return; }
-  const data = await r.json();
+  try {
+    const r = await fetch(`/api/soil?sensorId=${encodeURIComponent(SENSOR_ID)}&range=${encodeURIComponent(range)}`, { cache: "no-store" });
+    if (r.status === 204) { setSeries([]); return; }
+    const data = await r.json();
 
-  if (data.config) config = data.config;
-  if (data.latest) {
-    latest = data.latest;
-    updateLive(latest.raw, latest.at);
+    if (data.config) config = data.config;
+    if (data.latest) {
+      latest = data.latest;
+      updateLive(latest.raw, latest.at);
+    }
+    setSeries(data.series || []);
+  } catch (e) {
+    // Fallback auf latest, falls Netzwerk/JSON-Problem
+    setSeries([]);
   }
-  setSeries(data.series || []);
 }
 
 // separat: Live-Poll für Kopf + Graph-Refresh
 async function pollLatest(){
-  const r = await fetch(`/api/soil?sensorId=${encodeURIComponent(SENSOR_ID)}&range=latest`, { cache:"no-store" });
-  if (r.status!==200) return;
-  const data = await r.json();
-  if (!data.latest) return;
-  const nowAt = data.latest.at;
-  if (nowAt && nowAt !== lastSeenAt) {
-    lastSeenAt = nowAt;
-    config = data.config || config;
-    latest  = data.latest;
-    updateLive(latest.raw, latest.at);
-    await fetchSeries(currentRange);
-  }
+  try {
+    const r = await fetch(`/api/soil?sensorId=${encodeURIComponent(SENSOR_ID)}&range=latest`, { cache:"no-store" });
+    if (r.status!==200) return;
+    const data = await r.json();
+    if (!data.latest) return;
+    const nowAt = data.latest.at;
+    if (nowAt && nowAt !== lastSeenAt) {
+      lastSeenAt = nowAt;
+      config = data.config || config;
+      latest  = data.latest;
+      updateLive(latest.raw, latest.at);
+      await fetchSeries(currentRange);
+    }
+  } catch(e) { /* still quiet */ }
 }
 
-// Plant Info (speichern)
-function fillInfoUI(){
-  // (optional; wenn du Profil-API nutzt)
-}
-async function savePlantProfile(){
-  // (optional; wenn du Profil-API nutzt)
-}
+// Plant Info (Optional – unverändert)
+function fillInfoUI(){ /* … */ }
+async function savePlantProfile(){ /* … */ }
 
 // Calibration
 function showStep(n){
