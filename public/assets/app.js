@@ -20,9 +20,10 @@ const els = {
   calibBtn: $("#calibBtn"), modal: $("#calibModal"),
   dryInput: $("#dryInput"), wetInput: $("#wetInput"),
   useDryNow: $("#useDryNow"), useWetNow: $("#useWetNow"),
+  readNow: $("#readNow"), liveRaw: $("#liveRaw"), livePct: $("#livePct"),
   prevStep: $("#prevStep"), nextStep: $("#nextStep"),
   saveCalib: $("#saveCalib"), resetCalib: $("#resetCalib"),
-  calibLabel: $("#calibLabel"), calibMeta: $("#calibMeta"),
+  calibLabel: $("#calibLabel"), calibMeta: $("#calibMeta"), calibPlantName: $("#calibPlantName"),
   pi_name: $("#pi_name"), pi_species: $("#pi_species"),
   pi_location: $("#pi_location"), pi_pot: $("#pi_pot"),
   pi_note: $("#pi_note"), saveInfo: $("#saveInfo"),
@@ -173,8 +174,9 @@ function setSeries(points){
 
   if (config?.lastCalibrated || config?.updatedAt){
     const hushBefore = 30*1000, hushAfter = 60*1000;
-    const t0 = new Date(config.lastCalibrated || config.updatedAt).getTime();
-    norm = norm.map(p => (p.t >= t0-hushBefore && p.t <= t0+hushAfter) ? {...p,y:null}:p);
+    const t0 = new Date(config.lastCalibrated || config.updatedAt).toISOString();
+    const t0ms = Date.parse(t0);
+    norm = norm.map(p => (p.t >= t0ms-30000 && p.t <= t0ms+60000) ? {...p,y:null}:p);
   }
 
   if (norm.length===0 && latest){
@@ -282,29 +284,66 @@ async function savePlantProfile(){
   finally{ setTimeout(()=>{btn.textContent=old; btn.disabled=false;},900); }
 }
 
-// ==== Calibration flow ====
-function showStep(n){
-  $$(".modal .step").forEach(sec => sec.hidden = Number(sec.dataset.step)!==n);
-  $$(".steps-dots .dot").forEach(dot => dot.classList.toggle("active", Number(dot.dataset.step)===n));
-  if (els.prevStep) els.prevStep.style.visibility = n===1 ? "hidden" : "visible";
-  if (els.nextStep) els.nextStep.hidden = n===2;
-  if (els.saveCalib) els.saveCalib.hidden = n!==2;
+// ==== Calibration (UI) ====
+function setCalibPreviewFromInputs(){
+  const rawStr = els.liveRaw?.textContent;
+  const raw = Number(rawStr?.replace(/[^\d.]/g,'')); // tolerant
+  const dry = Number(els.dryInput?.value);
+  const wet = Number(els.wetInput?.value);
+  if (!Number.isFinite(raw) || !Number.isFinite(dry) || !Number.isFinite(wet) || dry===wet){
+    if (els.livePct) els.livePct.textContent = "—%";
+    return;
+  }
+  const p = clamp(100*(raw - dry)/(wet - dry), 0, 100);
+  els.livePct.textContent = Math.round(p)+"%";
 }
-els.calibBtn?.addEventListener("click", ()=>{ renderCalibSummary(); els.modal?.showModal(); showStep(1); });
-els.prevStep?.addEventListener("click", ()=>showStep(1));
-els.nextStep?.addEventListener("click", ()=>showStep(2));
-els.useDryNow?.addEventListener("click", ()=>{ if (latest && els.dryInput) els.dryInput.value = latest.raw; });
-els.useWetNow?.addEventListener("click", ()=>{ if (latest && els.wetInput) els.wetInput.value = latest.raw; });
+async function readCurrentRaw(){
+  try{
+    const r = await fetch(`/api/soil?sensorId=${encodeURIComponent(SENSOR_ID)}&range=latest`, {cache:"no-store"});
+    if (!r.ok){ els.liveRaw.textContent = "—"; return; }
+    const data = await r.json();
+    if (data?.latest?.raw != null){
+      els.liveRaw.textContent = String(data.latest.raw);
+      setCalibPreviewFromInputs();
+    } else {
+      els.liveRaw.textContent = "—";
+    }
+  }catch{ els.liveRaw.textContent = "—"; }
+}
+function openCalibModal(){
+  els.calibPlantName.textContent = plantProfile?.name || SENSOR_ID;
+  renderCalibSummary();
+  // vorbefüllen, falls vorhanden
+  els.dryInput.value = (config?.rawDry ?? "");
+  els.wetInput.value = (config?.rawWet ?? "");
+  els.liveRaw.textContent = "—";
+  els.livePct.textContent = "—%";
+  els.modal?.showModal();
+  // direkt einmal versuchen zu lesen
+  readCurrentRaw();
+}
+els.calibBtn?.addEventListener("click", openCalibModal);
+els.useDryNow?.addEventListener("click", async ()=>{ await readCurrentRaw(); const v = Number(els.liveRaw.textContent); if (Number.isFinite(v)) els.dryInput.value = v; setCalibPreviewFromInputs(); });
+els.useWetNow?.addEventListener("click", async ()=>{ await readCurrentRaw(); const v = Number(els.liveRaw.textContent); if (Number.isFinite(v)) els.wetInput.value = v; setCalibPreviewFromInputs(); });
+els.readNow?.addEventListener("click", async ()=>{ await readCurrentRaw(); });
+
+els.dryInput?.addEventListener("input", setCalibPreviewFromInputs);
+els.wetInput?.addEventListener("input", setCalibPreviewFromInputs);
+
 els.saveCalib?.addEventListener("click", async ()=>{
   const rawDry=Number(els.dryInput?.value), rawWet=Number(els.wetInput?.value);
   if (!Number.isFinite(rawDry) || !Number.isFinite(rawWet)) { alert("Bitte DRY und WET RAW eingeben."); return; }
+  if (rawDry===rawWet) { alert("Trocken und Nass müssen verschieden sein."); return; }
   const resp = await fetch("/api/calibrate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sensorId:SENSOR_ID,rawDry,rawWet})});
-  if (resp.ok){ els.modal?.close(); await fetchSeries(currentRange); } else alert("Kalibrierung fehlgeschlagen.");
+  if (resp.ok){ els.modal?.close(); await fetchSeries(currentRange); } else {
+    const t = await resp.text().catch(()=> "");
+    alert("Kalibrierung fehlgeschlagen: "+t);
+  }
 });
 els.resetCalib?.addEventListener("click", async ()=>{
-  if (!confirm("Kalibrierung zurücksetzen?")) return;
+  if (!confirm("Kalibrierung für diese Pflanze zurücksetzen?")) return;
   await fetch("/api/calibrate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sensorId:SENSOR_ID,reset:true})});
-  await fetchSeries(currentRange); renderCalibSummary();
+  await fetchSeries(currentRange); renderCalibSummary(); setCalibPreviewFromInputs();
 });
 
 // ==== Scale switch ====
@@ -328,7 +367,7 @@ els.menuBtn?.addEventListener('click', openSidebar);
 els.sidebarClose?.addEventListener('click', closeSidebar);
 els.sidebarOverlay?.addEventListener('click', closeSidebar);
 
-// ==== Sensors (Liste in der Sidebar) ====
+// ==== Sensors (Liste) ====
 async function loadSensors(){
   try {
     const r = await fetch("/api/sensors", {cache:"no-store"});
@@ -349,12 +388,10 @@ async function loadSensors(){
       `;
       if (s.id === SENSOR_ID) item.setAttribute('aria-selected','true');
       item.addEventListener('click', ()=>{
-        // Reset State & UI, bevor wir neue Daten laden
         SENSOR_ID = s.id;
         localStorage.setItem("sensorId", SENSOR_ID);
         latest = null; config = null; lastSeenAt = null;
-        resetLiveUI();
-        setSeries([]);
+        resetLiveUI(); setSeries([]);
         list.querySelectorAll('.plant-item[aria-selected="true"]').forEach(el=>el.removeAttribute('aria-selected'));
         item.setAttribute('aria-selected','true');
         closeSidebar();
@@ -372,14 +409,11 @@ async function loadSensors(){
       fetchSeries(currentRange);
       fetchPlant();
     } else {
-      resetLiveUI();
-      setSeries([]);
-      plantProfile=null; fillInfoUI();
+      resetLiveUI(); setSeries([]); plantProfile=null; fillInfoUI();
     }
   } catch (e) { console.error(e); }
 }
 
-// Neue Pflanze anlegen
 els.addPlantBtn?.addEventListener("click", ()=> els.newPlantModal?.showModal());
 els.np_save?.addEventListener("click", async ()=>{
   const id = els.np_id?.value?.trim();
@@ -387,20 +421,14 @@ els.np_save?.addEventListener("click", async ()=>{
   if (!id) { alert("Bitte Sensor-ID eingeben!"); return; }
   try{
     const r = await fetch("/api/register",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ sensorId:id, name })});
-    if (!r.ok) {
-      const txt = await r.text().catch(()=> "");
-      alert(`Fehler beim Anlegen: ${r.status} ${txt}`);
-      return;
-    }
-    els.newPlantModal?.close();
-    els.np_id.value = ""; els.np_name.value = "";
-    await loadSensors();
-    SENSOR_ID = id; localStorage.setItem("sensorId", id);
+    if (!r.ok) { const txt = await r.text().catch(()=> ""); alert(`Fehler: ${r.status} ${txt}`); return; }
+    els.newPlantModal?.close(); els.np_id.value = ""; els.np_name.value = "";
+    await loadSensors(); SENSOR_ID = id; localStorage.setItem("sensorId", id);
     fetchSeries(currentRange); fetchPlant();
   }catch(e){ alert("Fehler beim Anlegen!"); }
 });
 
-// ==== Info modal (Stats + Löschen) ====
+// ==== Info modal + Delete ====
 async function openInfo(){
   if (!SENSOR_ID) return;
   try{
@@ -428,7 +456,6 @@ async function openInfo(){
 }
 els.infoBtn?.addEventListener("click", openInfo);
 
-// Lösch-Logik (doppelte Bestätigung)
 async function deleteCurrentPlant(){
   if (!SENSOR_ID) return alert("Keine Pflanze ausgewählt.");
   const displayName = plantProfile?.name || els.info_name?.textContent || SENSOR_ID;
@@ -444,7 +471,6 @@ async function deleteCurrentPlant(){
     if (!r.ok) {
       const txt = await r.text().catch(()=> "");
       alert(`Löschen fehlgeschlagen: ${r.status} ${txt}`);
-      console.error("Delete failed", r.status, txt);
       return;
     }
     els.infoModal?.close();
@@ -457,14 +483,10 @@ async function deleteCurrentPlant(){
     } else {
       SENSOR_ID = null; localStorage.removeItem("sensorId");
       setSeries([]); plantProfile = null; fillInfoUI();
-      latest = null; config = null; renderCalibSummary();
-      resetLiveUI();
+      latest = null; config = null; renderCalibSummary(); resetLiveUI();
     }
     alert("Pflanze und alle zugehörigen Daten wurden entfernt.");
-  }catch(e){
-    console.error(e);
-    alert("Löschen fehlgeschlagen (Netzwerkfehler).");
-  }
+  }catch{ alert("Löschen fehlgeschlagen (Netzwerkfehler)."); }
 }
 els.deletePlantBtn?.addEventListener("click", deleteCurrentPlant);
 

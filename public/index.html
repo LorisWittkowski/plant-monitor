@@ -6,7 +6,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Plant Monitor</title>
   <link rel="stylesheet" href="/assets/style.css" />
-  <!-- Chart.js & app.js werden erst NACH Login geladen -->
 </head>
 <body>
   <!-- 🔒 Login -->
@@ -18,7 +17,7 @@
     </label>
     <div style="display:flex; gap:8px; align-items:center; margin-top:10px">
       <button id="pinBtn" class="btn primary">Login</button>
-      <span id="msg" style="color:#d33"></span>
+      <span id="msg" class="text-danger"></span>
     </div>
   </div>
 
@@ -129,54 +128,6 @@
 
     </main>
 
-    <!-- Kalibrierungs-Dialog -->
-    <dialog id="calibModal" class="modal">
-      <div class="modal-card">
-        <header class="modal-head">
-          <h4>Kalibrierung</h4>
-          <div class="steps-dots">
-            <span class="dot" data-step="1"></span>
-            <span class="dot" data-step="2"></span>
-          </div>
-          <button class="btn icon close" onclick="this.closest('dialog').close();" aria-label="Schließen">✕</button>
-        </header>
-
-        <div class="modal-body">
-          <div class="calib-summary" id="calibSummary">
-            <div class="row1">
-              <strong>Aktuell:</strong>
-              <span id="calibLabel">Keine Kalibrierung gespeichert</span>
-            </div>
-            <div class="row2" id="calibMeta">—</div>
-          </div>
-
-          <section class="step" data-step="1">
-            <p>Sensor trocken. Aktuellen RAW übernehmen oder manuell eintragen.</p>
-            <div class="inline">
-              <input id="dryInput" class="input" placeholder="RAW trocken" inputmode="numeric" />
-              <button id="useDryNow" class="btn">Aktuell übernehmen</button>
-            </div>
-          </section>
-
-          <section class="step" data-step="2" hidden>
-            <p>Sensor nass. Aktuellen RAW übernehmen oder manuell eintragen.</p>
-            <div class="inline">
-              <input id="wetInput" class="input" placeholder="RAW nass" inputmode="numeric" />
-              <button id="useWetNow" class="btn">Aktuell übernehmen</button>
-            </div>
-          </section>
-        </div>
-
-        <footer class="modal-foot">
-          <button id="prevStep" class="btn">Zurück</button>
-          <div class="spacer"></div>
-          <button id="resetCalib" class="btn ghost">Zurücksetzen</button>
-          <button id="nextStep" class="btn primary">Weiter</button>
-          <button id="saveCalib" class="btn primary" hidden>Kalibrierung speichern</button>
-        </footer>
-      </div>
-    </dialog>
-
     <!-- Neue Pflanze -->
     <dialog id="newPlantModal" class="modal">
       <div class="modal-card">
@@ -237,6 +188,75 @@
         </div>
         <footer class="modal-foot">
           <button id="deletePlantBtn" class="btn danger-outline">🗑️ Pflanze löschen</button>
+        </footer>
+      </div>
+    </dialog>
+
+    <!-- ⚙️ Kalibrierung (pro Sensor) -->
+    <dialog id="calibModal" class="modal">
+      <div class="modal-card">
+        <header class="modal-head">
+          <h4>Kalibrierung – <span id="calibPlantName">—</span></h4>
+          <button class="btn icon close" onclick="this.closest('dialog').close();" aria-label="Schließen">✕</button>
+        </header>
+
+        <div class="modal-body">
+          <!-- Summary -->
+          <section class="calib-summary">
+            <div class="row1">
+              <strong>Aktuell:</strong>
+              <span id="calibLabel">Keine Kalibrierung gespeichert</span>
+            </div>
+            <div class="row2" id="calibMeta">Fallback aktiv (0–4095 → %)</div>
+          </section>
+
+          <!-- Two columns -->
+          <div class="grid2 gap">
+            <div class="card subtle">
+              <div class="field">
+                <span class="label">Trocken (RAW)</span>
+                <div class="inline">
+                  <input id="dryInput" class="input" placeholder="z. B. 3800" inputmode="numeric" />
+                  <button id="useDryNow" class="btn tiny">Aktuell</button>
+                </div>
+              </div>
+              <p class="muted small">Sensor in trockene Erde/ Luft halten, „Aktuell“ übernehmen.</p>
+            </div>
+
+            <div class="card subtle">
+              <div class="field">
+                <span class="label">Nass (RAW)</span>
+                <div class="inline">
+                  <input id="wetInput" class="input" placeholder="z. B. 1200" inputmode="numeric" />
+                  <button id="useWetNow" class="btn tiny">Aktuell</button>
+                </div>
+              </div>
+              <p class="muted small">Sensor in nasse Erde/ Wasser halten, „Aktuell“ übernehmen.</p>
+            </div>
+          </div>
+
+          <div class="calib-preview">
+            <div>
+              <div class="muted small">Aktueller RAW</div>
+              <div id="liveRaw" class="mono big">—</div>
+            </div>
+            <div>
+              <div class="muted small">Ergibt (mit obiger Skala)</div>
+              <div id="livePct" class="mono big">—%</div>
+            </div>
+            <div class="spacer"></div>
+            <button id="readNow" class="btn">RAW jetzt lesen</button>
+          </div>
+
+          <div class="note muted small">
+            Tipp: Je weiter „trocken“ und „nass“ auseinanderliegen, desto stabiler die Anzeige.
+          </div>
+        </div>
+
+        <footer class="modal-foot">
+          <button id="resetCalib" class="btn ghost">Zurücksetzen</button>
+          <div class="spacer"></div>
+          <button id="saveCalib" class="btn primary">Kalibrierung speichern</button>
         </footer>
       </div>
     </dialog>

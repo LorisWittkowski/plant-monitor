@@ -31,18 +31,22 @@ export default async function handler(req, res) {
   const r = await redis();
   const key = `soil:${sensorId}:config`;
 
-  if (reset) { await r.del(key); return res.status(200).json({ ok:true, reset:true }); }
+  if (reset) {
+    await r.del(key);
+    return res.status(200).json({ ok:true, reset:true });
+  }
 
   const prev = await r.get(key);
   const old = prev ? JSON.parse(prev) : {};
-  const nowIso = new Date().toISOString();
-  const cfg = {
+  const now = new Date().toISOString();
+
+  const next = {
     rawDry: Number.isFinite(rawDry) ? rawDry : (old.rawDry ?? null),
     rawWet: Number.isFinite(rawWet) ? rawWet : (old.rawWet ?? null),
-    updatedAt: nowIso,
-    lastCalibrated: nowIso
+    updatedAt: now,
+    lastCalibrated: (Number.isFinite(rawDry) && Number.isFinite(rawWet) && rawDry !== rawWet) ? now : (old.lastCalibrated ?? null)
   };
-  await r.set(key, JSON.stringify(cfg));
-  await r.sAdd("soil:sensors", sensorId);
-  return res.status(200).json({ ok:true, config: cfg });
+
+  await r.set(key, JSON.stringify(next));
+  return res.status(200).json({ ok:true, config: next });
 }
