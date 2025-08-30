@@ -429,6 +429,9 @@ els.np_save?.addEventListener("click", async ()=>{
 });
 
 // ==== Info modal + Delete ====
+// NEU: Helfer für kleine Wartepausen (Timing-Race vermeiden)
+const sleep = (ms)=>new Promise(r=>setTimeout(r, ms));
+
 async function openInfo(){
   if (!SENSOR_ID) return;
   try{
@@ -456,39 +459,72 @@ async function openInfo(){
 }
 els.infoBtn?.addEventListener("click", openInfo);
 
+// ÜBERARBEITET: Deutlichere UX + garantierter UI-Reset
 async function deleteCurrentPlant(){
-  if (!SENSOR_ID) return alert("Keine Pflanze ausgewählt.");
+  if (!SENSOR_ID) { alert("Keine Pflanze ausgewählt."); return; }
+
   const displayName = plantProfile?.name || els.info_name?.textContent || SENSOR_ID;
+
   if (!confirm(`Wirklich löschen?\n"${displayName}" (ID: ${SENSOR_ID})`)) return;
   if (!confirm("Letzte Bestätigung: ALLE Daten dieser Pflanze werden gelöscht. Fortfahren?")) return;
 
+  const btn = els.deletePlantBtn;
+  const oldLabel = btn?.textContent;
+  if (btn){ btn.disabled = true; btn.textContent = "Lösche…"; }
+
   try{
+    // Request
     const r = await fetch("/api/delete-plant", {
       method:"POST",
       headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({ sensorId: SENSOR_ID })
     });
+
     if (!r.ok) {
       const txt = await r.text().catch(()=> "");
-      alert(`Löschen fehlgeschlagen: ${r.status} ${txt}`);
-      return;
+      throw new Error(`Serverfehler ${r.status}: ${txt}`);
     }
+
+    // Modalschließen + UI resetten
     els.infoModal?.close();
+
+    // Wähle eine neue aktive Pflanze oder leere die Ansicht
+    const deletedId = SENSOR_ID;
+
+    // State leeren – damit keine „Geisterwerte“ bleiben
+    SENSOR_ID = null;
+    localStorage.removeItem("sensorId");
+    latest = null; config = null; lastSeenAt = null;
+    resetLiveUI(); setSeries([]); plantProfile = null; fillInfoUI(); renderCalibSummary();
+
+    // Sidebar neu laden
     await loadSensors();
+    await sleep(50); // UI einmal atmen lassen
+
     const first = els.plantList?.querySelector('.plant-item');
     if (first){
-      const id = first.dataset.id;
-      SENSOR_ID = id; localStorage.setItem("sensorId", id);
-      first.click();
+      const newId = first.dataset.id;
+      SENSOR_ID = newId;
+      localStorage.setItem("sensorId", newId);
+      // visuell selecten & Daten laden
+      first.setAttribute('aria-selected','true');
+      fetchSeries(currentRange);
+      fetchPlant();
     } else {
-      SENSOR_ID = null; localStorage.removeItem("sensorId");
-      setSeries([]); plantProfile = null; fillInfoUI();
-      latest = null; config = null; renderCalibSummary(); resetLiveUI();
+      // Es gibt keine Pflanzen mehr → alles leer lassen
+      alert(`„${displayName}“ wurde entfernt. Es sind keine Pflanzen mehr vorhanden.`);
     }
-    alert("Pflanze und alle zugehörigen Daten wurden entfernt.");
-  }catch{ alert("Löschen fehlgeschlagen (Netzwerkfehler)."); }
+
+  }catch(e){
+    console.error(e);
+    alert(`Löschen fehlgeschlagen: ${e.message || e}`);
+  }finally{
+    if (btn){ btn.disabled = false; btn.textContent = oldLabel; }
+  }
 }
 els.deletePlantBtn?.addEventListener("click", deleteCurrentPlant);
+
+// ... (alles unten unverändert)
 
 // ==== Range + Save bindings ====
 els.rangeButtons().forEach(b=> b.addEventListener("click", ()=>{
