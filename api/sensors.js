@@ -29,5 +29,6 @@ export default async function handler(_req, res){
       calibrated: !!(cfg?.rawDry!=null && cfg?.rawWet!=null)
     });
   }
+  sensors.sort((a,b)=> (a.name||a.id).localeCompare(b.name||b.id, 'de', {numeric:true, sensitivity:'base'}));
   res.json({ sensors });
 }

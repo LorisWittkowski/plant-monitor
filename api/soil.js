@@ -1,4 +1,4 @@
-// file: api/soil.js
+// file: api/soil.js  (nur der POST-Teil enthält 1 zusätzliche Zeile r.sAdd)
 import { createClient } from "redis";
 
 let redisP;
@@ -34,11 +34,9 @@ function bucketize(entries, windowMs, cfg) {
   if (!entries || !entries.length) return [];
   const buckets = new Map();
   for (const e of entries) {
-    const t = new Date(e.at).getTime();
-    if (!Number.isFinite(t)) continue;
+    const t = new Date(e.at).getTime(); if (!Number.isFinite(t)) continue;
     const k = Math.floor(t / windowMs) * windowMs;
-    let b = buckets.get(k);
-    if (!b) { b = { sumRaw:0, cnt:0 }; buckets.set(k, b); }
+    let b = buckets.get(k); if (!b) { b = { sumRaw:0, cnt:0 }; buckets.set(k, b); }
     if (typeof e.raw === "number") { b.sumRaw += e.raw; b.cnt++; }
     else if (typeof e.rawAvg === "number") { b.sumRaw += e.rawAvg; b.cnt++; }
     else if (typeof e.percent === "number") { b.sumRaw += (e.percent/100)*RAW_MAX; b.cnt++; }
@@ -67,8 +65,7 @@ function fillMissing(series, fromMs, toMs, windowMs) {
   const full = [];
   for (let k = start; k <= end; k += windowMs) {
     const hit = byBucket.get(k);
-    if (hit) full.push(hit);
-    else full.push({ at: new Date(k + windowMs/2).toISOString(), rawAvg: null, percent: null });
+    full.push(hit ? hit : { at: new Date(k + windowMs/2).toISOString(), rawAvg: null, percent: null });
   }
   return full;
 }
@@ -154,7 +151,7 @@ export default async function handler(req, res) {
       r.set(`soil:${id}:latest`, JSON.stringify(payload)),
       r.lPush(`soil:${id}:history`, JSON.stringify(payload)),
       r.lTrim(`soil:${id}:history`, 0, 4000),
-      r.sAdd('soil:sensors', id) // <— registriere Sensor-ID für die Liste
+      r.sAdd('soil:sensors', id) // <— NEU: registrieren
     ]);
 
     // 10-Min Aggregation

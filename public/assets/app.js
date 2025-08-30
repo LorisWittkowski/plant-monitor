@@ -37,6 +37,17 @@ const els = {
   addPlantBtn: $("#addPlantBtn"),
   newPlantModal: $("#newPlantModal"),
   np_id: $("#np_id"), np_name: $("#np_name"), np_save: $("#np_save"),
+
+  // Info modal
+  infoBtn: $("#infoBtn"),
+  infoModal: $("#infoModal"),
+  info_sensorId: $("#info_sensorId"),
+  info_name: $("#info_name"),
+  info_created: $("#info_created"),
+  info_updated: $("#info_updated"),
+  info_counts: $("#info_counts"),
+  info_size: $("#info_size"),
+  deletePlantBtn: $("#deletePlantBtn"),
 };
 
 // ==== Theme ====
@@ -66,7 +77,7 @@ const cssVar = (name, fallback) => getComputedStyle(document.documentElement).ge
 const asPercent = raw => {
   if (!config || config.rawDry==null || config.rawWet==null || config.rawDry===config.rawWet)
     return clamp((raw/RAW_MAX)*100,0,100);
-  return clamp(100*(raw - config.rawDry)/(config.rawWet - config.rawDry),0,100);
+  return clamp(100*(raw - config.rawDry)/(config.rawWet - config.rawWet),0,100);
 };
 function autosize(el){ if (!el) return; el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }
 function bindAutosize(el){
@@ -151,7 +162,6 @@ function setSeries(points){
     .filter(p=>Number.isFinite(p.t))
     .sort((a,b)=>a.t-b.t);
 
-  // Lücke bei Kalibrierung
   if (config?.lastCalibrated || config?.updatedAt){
     const hushBefore = 30*1000, hushAfter = 60*1000;
     const t0 = new Date(config.lastCalibrated || config.updatedAt).getTime();
@@ -189,7 +199,6 @@ function setSeries(points){
   const nonNull = vals.length;
   chart.data.datasets[0].pointRadius = (nonNull < 2) ? 3 : 0;
   chart.options.plugins.decimation.enabled = (nonNull >= 200);
-
   chart.update();
 }
 
@@ -257,7 +266,6 @@ async function savePlantProfile(){
   try{
     const r = await fetch("/api/plant",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
     if (!r.ok) throw 0; btn.textContent="Gespeichert ✓"; await fetchPlant();
-    // Name im Sidebar-Listeneintrag live aktualisieren
     const active = els.plantList?.querySelector('.plant-item[aria-selected="true"] .plant-name');
     if (active && els.pi_name?.value) active.textContent = els.pi_name.value;
   }catch{ btn.textContent="Fehler ❌"; }
@@ -303,17 +311,9 @@ els.resetCalib?.addEventListener("click", async ()=>{
   }
 })();
 
-// ==== Sidebar controls (open/close) ====
-function openSidebar(){
-  els.sidebar?.classList.add('open');
-  els.sidebar?.setAttribute('aria-hidden','false');
-  els.sidebarOverlay.hidden = false;
-}
-function closeSidebar(){
-  els.sidebar?.classList.remove('open');
-  els.sidebar?.setAttribute('aria-hidden','true');
-  els.sidebarOverlay.hidden = true;
-}
+// ==== Sidebar controls ====
+function openSidebar(){ els.sidebar?.classList.add('open'); els.sidebar?.setAttribute('aria-hidden','false'); els.sidebarOverlay.hidden = false; }
+function closeSidebar(){ els.sidebar?.classList.remove('open'); els.sidebar?.setAttribute('aria-hidden','true'); els.sidebarOverlay.hidden = true; }
 els.menuBtn?.addEventListener('click', openSidebar);
 els.sidebarClose?.addEventListener('click', closeSidebar);
 els.sidebarOverlay?.addEventListener('click', closeSidebar);
@@ -341,10 +341,8 @@ async function loadSensors(){
       item.addEventListener('click', ()=>{
         SENSOR_ID = s.id;
         localStorage.setItem("sensorId", SENSOR_ID);
-        // Auswahl visuell updaten
         list.querySelectorAll('.plant-item[aria-selected="true"]').forEach(el=>el.removeAttribute('aria-selected'));
         item.setAttribute('aria-selected','true');
-        // Daten laden
         closeSidebar();
         fetchSeries(currentRange);
         fetchPlant();
@@ -352,7 +350,6 @@ async function loadSensors(){
       list.appendChild(item);
     });
 
-    // Auswahl initialisieren
     if (!sensors.some(s=>s.id===SENSOR_ID) && sensors.length){
       SENSOR_ID = sensors[0].id;
       localStorage.setItem("sensorId", SENSOR_ID);
@@ -365,9 +362,7 @@ async function loadSensors(){
 }
 
 // Neue Pflanze anlegen
-els.addPlantBtn?.addEventListener("click", ()=>{
-  els.newPlantModal?.showModal();
-});
+els.addPlantBtn?.addEventListener("click", ()=> els.newPlantModal?.showModal());
 els.np_save?.addEventListener("click", async ()=>{
   const id = els.np_id?.value?.trim();
   const name = els.np_name?.value?.trim();
@@ -378,26 +373,86 @@ els.np_save?.addEventListener("click", async ()=>{
     els.newPlantModal?.close();
     els.np_id.value = ""; els.np_name.value = "";
     await loadSensors();
-    // Fokus auf neue Pflanze
-    SENSOR_ID = id;
-    localStorage.setItem("sensorId", id);
-    fetchSeries(currentRange);
-    fetchPlant();
+    SENSOR_ID = id; localStorage.setItem("sensorId", id);
+    fetchSeries(currentRange); fetchPlant();
   }catch{ alert("Fehler beim Anlegen!"); }
 });
 
-// ==== Events & Init ====
+// ==== Info modal (Stats + Löschen) ====
+async function openInfo(){
+  if (!SENSOR_ID) return;
+  try{
+    const r = await fetch(`/api/plant-stats?sensorId=${encodeURIComponent(SENSOR_ID)}`, {cache:"no-store"});
+    const data = r.ok ? await r.json() : null;
+    els.info_sensorId.textContent = data?.sensorId || SENSOR_ID;
+    const name = plantProfile?.name || data?.profile?.name || SENSOR_ID;
+    els.info_name.textContent = name;
+    els.info_created.textContent = data?.profile?.createdAt ? new Date(data.profile.createdAt).toLocaleString() : "—";
+    els.info_updated.textContent = data?.profile?.updatedAt ? new Date(data.profile.updatedAt).toLocaleString() : "—";
+    const c = data?.counts || {};
+    els.info_counts.textContent = `${c.history ?? 0} / ${c.agg10m ?? 0} / ${c.notes ?? 0}`;
+    const b = data?.bytes || {};
+    const toKB = v => (v ? Math.round(v/1024) : 0);
+    els.info_size.textContent = `${toKB(b.total)} KB (gesamt)`;
+  }catch{
+    els.info_sensorId.textContent = SENSOR_ID;
+    els.info_name.textContent = plantProfile?.name || SENSOR_ID;
+    els.info_created.textContent = "—";
+    els.info_updated.textContent = "—";
+    els.info_counts.textContent = "—";
+    els.info_size.textContent = "—";
+  }
+  els.infoModal?.showModal();
+}
+els.infoBtn?.addEventListener("click", openInfo);
+
+// Lösch-Logik (doppelte Bestätigung)
+async function deleteCurrentPlant(){
+  if (!SENSOR_ID) return alert("Keine Pflanze ausgewählt.");
+  const displayName = plantProfile?.name || els.info_name?.textContent || SENSOR_ID;
+  if (!confirm(`Wirklich löschen?\n"${displayName}" (ID: ${SENSOR_ID})`)) return;
+  if (!confirm("Letzte Bestätigung: ALLE Daten dieser Pflanze werden gelöscht. Fortfahren?")) return;
+
+  try{
+    const r = await fetch("/api/delete-plant", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ sensorId: SENSOR_ID })
+    });
+    if (!r.ok) throw new Error("Serverfehler");
+    els.infoModal?.close();
+    await loadSensors();
+    const first = els.plantList?.querySelector('.plant-item');
+    if (first){
+      const id = first.dataset.id;
+      SENSOR_ID = id; localStorage.setItem("sensorId", id);
+      first.click();
+    } else {
+      SENSOR_ID = null; localStorage.removeItem("sensorId");
+      setSeries([]); plantProfile = null; fillInfoUI();
+      latest = null; config = null; renderCalibSummary();
+    }
+    alert("Pflanze und alle zugehörigen Daten wurden entfernt.");
+  }catch(e){
+    console.error(e);
+    alert("Löschen fehlgeschlagen.");
+  }
+}
+els.deletePlantBtn?.addEventListener("click", deleteCurrentPlant);
+
+// ==== Range + Save bindings ====
 els.rangeButtons().forEach(b=> b.addEventListener("click", ()=>{
   currentRange = b.dataset.range; localStorage.setItem("range", currentRange); fetchSeries(currentRange);
 }));
 els.saveInfo?.addEventListener("click", savePlantProfile);
 
+// ==== Init ====
 (function init(){
   const savedRange = localStorage.getItem("range");
   if (savedRange && ["1h","24h","7d"].includes(savedRange)) currentRange = savedRange;
 
   initChart();
-  loadSensors(); // setzt SENSOR_ID & lädt Daten
+  loadSensors();
 
   if (els.pi_note) bindAutosize(els.pi_note);
   setInterval(pollLatest, POLL_MS);

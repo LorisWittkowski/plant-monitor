@@ -27,9 +27,7 @@
     <!-- Sticky Topbar -->
     <header class="topbar">
       <div class="container topbar-inner">
-        <button id="menuBtn" class="btn tiny icon-left" aria-label="Seitenmenü öffnen">
-          ☰
-        </button>
+        <button id="menuBtn" class="btn tiny icon-left" aria-label="Seitenmenü öffnen">☰</button>
         <h1 class="brand">Plant Monitor</h1>
         <div class="actions">
           <button id="logoutBtn" class="btn tiny" aria-label="Logout">Logout</button>
@@ -45,9 +43,7 @@
         <strong>Pflanzen</strong>
         <button id="sidebarClose" class="btn icon" aria-label="Schließen">✕</button>
       </div>
-      <nav class="plant-list" id="plantList" role="listbox" aria-label="Pflanzen auswählen">
-        <!-- Einträge werden von app.js gefüllt -->
-      </nav>
+      <nav class="plant-list" id="plantList" role="listbox" aria-label="Pflanzen auswählen"></nav>
       <div class="sidebar-foot">
         <button id="addPlantBtn" class="btn primary" style="width:100%">➕ Neue Pflanze</button>
       </div>
@@ -60,7 +56,10 @@
       <section class="card">
         <header class="card-head">
           <h2>Pflanzendaten</h2>
-          <button id="saveInfo" class="btn primary">Speichern</button>
+          <div style="display:flex; gap:8px">
+            <button id="infoBtn" class="btn tiny" title="Info & Verwaltung">Info</button>
+            <button id="saveInfo" class="btn primary">Speichern</button>
+          </div>
         </header>
 
         <div class="grid2 gap">
@@ -200,14 +199,54 @@
         </footer>
       </div>
     </dialog>
+
+    <!-- Info & Verwaltung (STATs + Löschen) -->
+    <dialog id="infoModal" class="modal">
+      <div class="modal-card">
+        <header class="modal-head">
+          <h4>Pflanzen-Info</h4>
+          <button class="btn icon close" onclick="this.closest('dialog').close();" aria-label="Schließen">✕</button>
+        </header>
+        <div class="modal-body">
+          <div class="grid2 gap">
+            <div class="field">
+              <span class="label">Sensor-ID</span>
+              <div id="info_sensorId">—</div>
+            </div>
+            <div class="field">
+              <span class="label">Name</span>
+              <div id="info_name">—</div>
+            </div>
+            <div class="field">
+              <span class="label">Erstellt am</span>
+              <div id="info_created">—</div>
+            </div>
+            <div class="field">
+              <span class="label">Zuletzt geändert</span>
+              <div id="info_updated">—</div>
+            </div>
+            <div class="field">
+              <span class="label">Einträge (History / 10-Min / Notizen)</span>
+              <div id="info_counts">—</div>
+            </div>
+            <div class="field">
+              <span class="label">Datenmenge (ca.)</span>
+              <div id="info_size">—</div>
+            </div>
+          </div>
+        </div>
+        <footer class="modal-foot">
+          <button id="deletePlantBtn" class="btn ghost" style="border-color:#d44; color:#d44">🗑️ Pflanze löschen</button>
+        </footer>
+      </div>
+    </dialog>
   </div>
 
   <!-- 🔧 Login-/Unlock-Logik + Lazy-Loading -->
   <script>
-    // ============= PIN-Einstellungen =================
-    // PIN = "water" (SHA-256):
+    // PIN = "water" (SHA-256)
     const USE_HASH = true;
-    const PIN_PLAINTEXT = "water"; // nur relevant, wenn USE_HASH=false
+    const PIN_PLAINTEXT = "water";
     const PIN_HASH = "3ad843de61d1d6d13b3ee863d07be4c6569d7b0c3f9cfdfad3a86e0d94369a6a";
 
     function setVisible(el, on){ if (el) el.hidden = !on; }
@@ -223,7 +262,6 @@
       const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
       return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
     }
-
     async function unlock(){
       localStorage.setItem("plantLoggedIn","1");
       setVisible(document.getElementById("lockScreen"), false);
@@ -231,7 +269,6 @@
       await loadScript("https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js");
       await loadScript("/assets/app.js");
     }
-
     async function checkPin(){
       const val = (document.getElementById("pinInput").value || "").trim();
       if (!val) return;
@@ -240,19 +277,12 @@
       if (ok) { msg.textContent = ""; unlock(); }
       else { msg.textContent = "❌ Falscher PIN"; }
     }
-
-    function logout(){
-      localStorage.removeItem("plantLoggedIn");
-      location.reload();
-    }
-
+    function logout(){ localStorage.removeItem("plantLoggedIn"); location.reload(); }
     window.addEventListener("DOMContentLoaded", ()=>{
       const logged = localStorage.getItem("plantLoggedIn") === "1";
       if (logged) unlock();
-
       document.getElementById("pinBtn")?.addEventListener("click", checkPin);
       document.getElementById("pinInput")?.addEventListener("keydown", e=>{ if (e.key === "Enter") checkPin(); });
-
       document.getElementById("logoutBtn")?.addEventListener("click", logout);
     });
   </script>
