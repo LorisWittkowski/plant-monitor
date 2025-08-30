@@ -1,3 +1,4 @@
+<!-- file: public/index.html -->
 <!doctype html>
 <html lang="de">
 <head>
@@ -5,142 +6,229 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Plant Monitor</title>
   <link rel="stylesheet" href="/assets/style.css" />
-  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <script defer src="/assets/app.js"></script>
+  <!-- Wichtig: Chart.js & app.js NICHT im Head laden.
+       Wir laden beide erst NACH erfolgreichem Login per JS nach! -->
 </head>
 <body>
-  <header class="topbar container">
-    <h1 class="brand">Plant Monitor</h1>
-    <div class="actions">
-      <!-- Neuer, kleiner Text-Button: zeigt den Zielmodus an -->
-      <button id="themeToggle" class="btn tiny" aria-label="Theme umschalten">Dark</button>
-      <button id="calibBtn" class="btn primary">Kalibrieren</button>
+  <!-- 🔒 Login-Screen -->
+  <div id="lockScreen" class="container" style="padding:40px;max-width:480px">
+    <h2 class="brand" style="margin-bottom:12px">🔒 Plant Monitor Login</h2>
+
+    <label class="field">
+      <span class="label">PIN</span>
+      <input id="pinInput" class="input" type="password" inputmode="numeric" placeholder="PIN eingeben" />
+    </label>
+
+    <div style="display:flex; gap:8px; align-items:center; margin-top:10px">
+      <button id="pinBtn" class="btn primary">Login</button>
+      <button id="pinClear" class="btn tiny" title="Abmelden (LocalStorage zurücksetzen)">Abmelden</button>
+      <span id="msg" style="color:#d33"></span>
     </div>
-  </header>
+  </div>
 
-  <main class="container stack">
-
-    <!-- Pflanzendaten -->
-    <section class="card">
-      <header class="card-head">
-        <h2>Pflanzendaten</h2>
-        <button id="saveInfo" class="btn primary">Speichern</button>
-      </header>
-
-      <div class="grid2 gap">
-        <label class="field">
-          <span class="label">Name</span>
-          <input id="pi_name" class="input" placeholder="z. B. Fensterbank links" />
-        </label>
-        <label class="field">
-          <span class="label">Art</span>
-          <input id="pi_species" class="input" placeholder="z. B. Monstera deliciosa" />
-        </label>
-
-        <label class="field">
-          <span class="label">Standort</span>
-          <input id="pi_location" class="input" placeholder="z. B. Wohnzimmer" />
-        </label>
-        <label class="field">
-          <span class="label">Höhe (cm)</span>
-          <input id="pi_pot" class="input" inputmode="numeric" placeholder="z. B. 18" />
-        </label>
-
-        <label class="field col-span-2">
-          <span class="label">Notiz</span>
-          <textarea id="pi_note" class="input textarea-auto" placeholder="kurze Notiz…"></textarea>
-        </label>
+  <!-- 🌿 App (versteckt bis Login) -->
+  <div id="app" hidden>
+    <header class="topbar container">
+      <h1 class="brand">Plant Monitor</h1>
+      <div class="actions">
+        <button id="logoutBtn" class="btn tiny" aria-label="Logout">Logout</button>
+        <button id="themeToggle" class="btn tiny" aria-label="Theme umschalten">Dark</button>
+        <button id="calibBtn" class="btn primary">Kalibrieren</button>
       </div>
-    </section>
+    </header>
 
-    <!-- Live -->
-    <section class="card">
-      <div class="live-wrap">
-        <div class="live-left">
-          <div id="value" class="live-percent">—%</div>
-        </div>
-        <div class="live-right">
-          <div class="live-meta"><span>RAW <span id="raw">—</span></span> <span> | </span> <span id="ts">—</span></div>
-          <div class="bar">
-            <div id="fill" class="fill"></div>
-          </div>
-        </div>
-      </div>
-    </section>
+    <main class="container stack">
 
-    <!-- Historie -->
-    <section class="card">
-      <header class="card-head card-head-row">
-        <h3>Historie</h3>
-        <div class="head-tools">
-          <div class="range" role="tablist" aria-label="Zeitraum auswählen">
-            <button class="btn seg" data-range="1h"  role="tab" aria-selected="true">Letzte Stunde</button>
-            <button class="btn seg" data-range="24h" role="tab" aria-selected="false">24 h</button>
-            <button class="btn seg" data-range="7d"  role="tab" aria-selected="false">7 Tage</button>
-          </div>
+      <!-- Pflanzendaten -->
+      <section class="card">
+        <header class="card-head">
+          <h2>Pflanzendaten</h2>
+          <button id="saveInfo" class="btn primary">Speichern</button>
+        </header>
 
-          <!-- Unauffälliger Skalen-Schalter -->
-          <label class="switch" title="Fixe Skala 0–100%">
-            <input id="scaleFixed" type="checkbox" />
-            <span class="track" aria-hidden="true"></span>
-            <span class="switch-label">0–100</span>
+        <div class="grid2 gap">
+          <label class="field">
+            <span class="label">Name</span>
+            <input id="pi_name" class="input" placeholder="z. B. Fensterbank links" />
+          </label>
+          <label class="field">
+            <span class="label">Art</span>
+            <input id="pi_species" class="input" placeholder="z. B. Monstera deliciosa" />
+          </label>
+
+          <label class="field">
+            <span class="label">Standort</span>
+            <input id="pi_location" class="input" placeholder="z. B. Wohnzimmer" />
+          </label>
+          <label class="field">
+            <span class="label">Höhe (cm)</span>
+            <input id="pi_pot" class="input" inputmode="numeric" placeholder="z. B. 18" />
+          </label>
+
+          <label class="field col-span-2">
+            <span class="label">Notiz</span>
+            <textarea id="pi_note" class="input textarea-auto" placeholder="kurze Notiz…"></textarea>
           </label>
         </div>
-      </header>
+      </section>
 
-      <div class="chart-wrap">
-        <canvas id="chart"></canvas>
-      </div>
-    </section>
-
-  </main>
-
-  <!-- Kalibrierungs-Dialog -->
-  <dialog id="calibModal" class="modal">
-    <div class="modal-card">
-      <header class="modal-head">
-        <h4>Kalibrierung</h4>
-        <div class="steps-dots">
-          <span class="dot" data-step="1"></span>
-          <span class="dot" data-step="2"></span>
+      <!-- Live -->
+      <section class="card">
+        <div class="live-wrap">
+          <div class="live-left">
+            <div id="value" class="live-percent">—%</div>
+          </div>
+          <div class="live-right">
+            <div class="live-meta"><span>RAW <span id="raw">—</span></span> <span> | </span> <span id="ts">—</span></div>
+            <div class="bar">
+              <div id="fill" class="fill"></div>
+            </div>
+          </div>
         </div>
-        <button class="btn icon close" onclick="this.closest('dialog').close();" aria-label="Schließen">✕</button>
-      </header>
+      </section>
 
-      <div class="modal-body">
-        <div class="calib-summary" id="calibSummary">
-          <div class="row1">
-            <strong>Aktuell:</strong>
-            <span id="calibLabel">Keine Kalibrierung gespeichert</span>
+      <!-- Historie -->
+      <section class="card">
+        <header class="card-head card-head-row">
+          <h3>Historie</h3>
+          <div class="head-tools">
+            <div class="range" role="tablist" aria-label="Zeitraum auswählen">
+              <button class="btn seg" data-range="1h"  role="tab" aria-selected="true">Letzte Stunde</button>
+              <button class="btn seg" data-range="24h" role="tab" aria-selected="false">24 h</button>
+              <button class="btn seg" data-range="7d"  role="tab" aria-selected="false">7 Tage</button>
+            </div>
+
+            <!-- Skalen-Schalter -->
+            <label class="switch" title="Fixe Skala 0–100%">
+              <input id="scaleFixed" type="checkbox" />
+              <span class="track" aria-hidden="true"></span>
+              <span class="switch-label">0–100</span>
+            </label>
           </div>
-          <div class="row2" id="calibMeta">—</div>
+        </header>
+
+        <div class="chart-wrap">
+          <canvas id="chart"></canvas>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Kalibrierungs-Dialog -->
+    <dialog id="calibModal" class="modal">
+      <div class="modal-card">
+        <header class="modal-head">
+          <h4>Kalibrierung</h4>
+          <div class="steps-dots">
+            <span class="dot" data-step="1"></span>
+            <span class="dot" data-step="2"></span>
+          </div>
+          <button class="btn icon close" onclick="this.closest('dialog').close();" aria-label="Schließen">✕</button>
+        </header>
+
+        <div class="modal-body">
+          <div class="calib-summary" id="calibSummary">
+            <div class="row1">
+              <strong>Aktuell:</strong>
+              <span id="calibLabel">Keine Kalibrierung gespeichert</span>
+            </div>
+            <div class="row2" id="calibMeta">—</div>
+          </div>
+
+          <section class="step" data-step="1">
+            <p>Sensor trocken. Aktuellen RAW übernehmen oder manuell eintragen.</p>
+            <div class="inline">
+              <input id="dryInput" class="input" placeholder="RAW trocken" inputmode="numeric" />
+              <button id="useDryNow" class="btn">Aktuell übernehmen</button>
+            </div>
+          </section>
+
+          <section class="step" data-step="2" hidden>
+            <p>Sensor nass. Aktuellen RAW übernehmen oder manuell eintragen.</p>
+            <div class="inline">
+              <input id="wetInput" class="input" placeholder="RAW nass" inputmode="numeric" />
+              <button id="useWetNow" class="btn">Aktuell übernehmen</button>
+            </div>
+          </section>
         </div>
 
-        <section class="step" data-step="1">
-          <p>Sensor trocken. Aktuellen RAW übernehmen oder manuell eintragen.</p>
-          <div class="inline">
-            <input id="dryInput" class="input" placeholder="RAW trocken" inputmode="numeric" />
-            <button id="useDryNow" class="btn">Aktuell übernehmen</button>
-          </div>
-        </section>
-
-        <section class="step" data-step="2" hidden>
-          <p>Sensor nass. Aktuellen RAW übernehmen oder manuell eintragen.</p>
-          <div class="inline">
-            <input id="wetInput" class="input" placeholder="RAW nass" inputmode="numeric" />
-            <button id="useWetNow" class="btn">Aktuell übernehmen</button>
-          </div>
-        </section>
+        <footer class="modal-foot">
+          <button id="prevStep" class="btn">Zurück</button>
+          <div class="spacer"></div>
+          <button id="resetCalib" class="btn ghost">Zurücksetzen</button>
+          <button id="nextStep" class="btn primary">Weiter</button>
+          <button id="saveCalib" class="btn primary" hidden>Kalibrierung speichern</button>
+        </footer>
       </div>
+    </dialog>
+  </div>
 
-      <footer class="modal-foot">
-        <button id="prevStep" class="btn">Zurück</button>
-        <div class="spacer"></div>
-        <button id="resetCalib" class="btn ghost">Zurücksetzen</button>
-        <button id="nextStep" class="btn primary">Weiter</button>
-        <button id="saveCalib" class="btn primary" hidden>Kalibrierung speichern</button>
-      </footer>
-    </div>
-  </dialog>
+  <!-- 🔧 Login-/Unlock-Logik + Lazy-Loading -->
+  <script>
+    // ============= PIN-Einstellungen =================
+    // Standard-PIN ist 1234. Ändern:
+    // 1) Neuen Hash erzeugen (siehe Kommentar weiter unten)
+    // 2) PIN_HASH hier ersetzen
+    const USE_HASH = true; // true = vergleicht Hash; false = vergleicht Klartext-PIN
+    const PIN_PLAINTEXT = "1234"; // nur relevant, wenn USE_HASH=false ist
+    // SHA-256 von "1234":
+    const PIN_HASH = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
+
+    // Eigenen Hash erzeugen (Browser-Konsole):
+    // (async s=>{const h=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+    // console.log(Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join(''))})('DEINE_PIN');
+
+    // ============= Helpers ============================
+    function setVisible(el, on){ if (el) el.hidden = !on; }
+    function loadScript(src){
+      return new Promise((resolve, reject)=>{
+        const s = document.createElement("script");
+        s.src = src; s.defer = true;
+        s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+    async function sha256Hex(str){
+      const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+      return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+    }
+
+    async function unlock(){
+      localStorage.setItem("plantLoggedIn","1");
+      setVisible(document.getElementById("lockScreen"), false);
+      setVisible(document.getElementById("app"), true);
+      // Erst jetzt libs & app laden ⇒ DAVOR keine API-Requests
+      await loadScript("https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js");
+      await loadScript("/assets/app.js");
+    }
+
+    async function checkPin(){
+      const val = (document.getElementById("pinInput").value || "").trim();
+      if (!val) return;
+      const ok = USE_HASH ? (await sha256Hex(val) === PIN_HASH) : (val === PIN_PLAINTEXT);
+      const msg = document.getElementById("msg");
+      if (ok) { msg.textContent = ""; unlock(); }
+      else { msg.textContent = "❌ Falscher PIN"; }
+    }
+
+    function logout(){
+      localStorage.removeItem("plantLoggedIn");
+      location.reload();
+    }
+
+    // ============= Init ===============================
+    window.addEventListener("DOMContentLoaded", ()=>{
+      const logged = localStorage.getItem("plantLoggedIn") === "1";
+      if (logged) unlock(); // Auto-Login, wenn Flag gesetzt
+
+      // Login Events
+      document.getElementById("pinBtn")?.addEventListener("click", checkPin);
+      document.getElementById("pinInput")?.addEventListener("keydown", e=>{ if (e.key === "Enter") checkPin(); });
+      document.getElementById("pinClear")?.addEventListener("click", ()=>{ localStorage.removeItem("plantLoggedIn"); alert("Abgemeldet."); });
+
+      // Logout in der App
+      document.getElementById("logoutBtn")?.addEventListener("click", logout);
+    });
+  </script>
 </body>
 </html>
