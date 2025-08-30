@@ -21,7 +21,6 @@
 
     <div style="display:flex; gap:8px; align-items:center; margin-top:10px">
       <button id="pinBtn" class="btn primary">Login</button>
-      <button id="pinClear" class="btn tiny" title="Abmelden (LocalStorage zurücksetzen)">Abmelden</button>
       <span id="msg" style="color:#d33"></span>
     </div>
   </div>
@@ -221,7 +220,6 @@
       // Login Events
       document.getElementById("pinBtn")?.addEventListener("click", checkPin);
       document.getElementById("pinInput")?.addEventListener("keydown", e=>{ if (e.key === "Enter") checkPin(); });
-      document.getElementById("pinClear")?.addEventListener("click", ()=>{ localStorage.removeItem("plantLoggedIn"); alert("Abgemeldet."); });
 
       // Logout in der App
       document.getElementById("logoutBtn")?.addEventListener("click", logout);
