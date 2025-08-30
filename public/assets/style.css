@@ -1,4 +1,6 @@
 /* file: public/assets/style.css */
+
+/* ===== Theme Vars ===== */
 :root{
   --bg:#f5f6f7;
   --panel:#ffffff;
@@ -18,7 +20,7 @@
 :root[data-theme="dark"]{
   --bg:#121416;
   --panel:#171a1e;
-  --fg:#e7eaee;
+  --fg:#e7eaee;          /* fix: all text uses fg in dark */
   --fg-strong:#ffffff;
   --muted:#a3aab1;
   --stroke:#242a31;
@@ -31,7 +33,7 @@
   --danger-weak:#3a2222;
 }
 
-/* Base */
+/* ===== Base ===== */
 *{ box-sizing:border-box }
 html, body{ height:100% }
 body{
@@ -40,21 +42,34 @@ body{
   background:var(--bg);
   color:var(--fg);
 }
+a{ color:inherit; text-decoration:none }
 .text-danger{ color:var(--danger) }
 
-/* Containers & Topbar */
+/* ===== Containers ===== */
 .container{ max-width:1100px; margin:0 auto; padding:16px }
 .stack > *{ margin-bottom:16px }
 
+/* ===== Topbar (sticky) ===== */
 .topbar{
-  position: sticky; top:0; z-index:80; /* vor Sidebar-Overlay */
-  background:var(--bg);
-  border-bottom:1px solid var(--stroke);
-  color:var(--fg);
+  position: sticky;
+  top: 0;
+  z-index: 100;  /* under sidebar(120), over content */
+  background: var(--bg);
+  border-bottom: 1px solid var(--stroke);
+  color: var(--fg);
 }
 .topbar-inner{ display:flex; justify-content:space-between; align-items:center }
 
-/* Cards */
+/* Brand / Header */
+.brand{
+  font-size:24px;
+  font-weight:600;
+  letter-spacing:-0.01em;
+  margin:0;
+}
+.actions{ display:flex; gap:8px }
+
+/* ===== Cards ===== */
 .card{
   background:var(--panel);
   border:1px solid var(--stroke);
@@ -70,12 +85,12 @@ body{
 .card-head h2, .card-head h3{ margin:0 }
 .head-tools{ display:flex; gap:10px; align-items:center }
 
-/* Grid */
+/* ===== Grid ===== */
 .grid2{ display:grid; grid-template-columns:1fr 1fr }
 .gap{ gap:12px }
 .col-span-2{ grid-column:1 / -1 }
 
-/* Inputs & Buttons */
+/* ===== Inputs & Buttons ===== */
 .label{ display:block; margin:2px 0 6px; color:var(--muted) }
 .input{
   width:100%; padding:14px 16px; border-radius:16px;
@@ -110,12 +125,12 @@ body{
 .mono{ font-variant-numeric: tabular-nums }
 .big{ font-size:22px }
 
-/* Range */
+/* ===== Segmented Range ===== */
 .range{ display:flex; gap:6px; padding:4px; border:1px solid var(--stroke); border-radius:16px; background:var(--panel-tint) }
 .btn.seg{ border:none; background:transparent; color:var(--fg); padding:8px 12px; border-radius:12px }
 .btn.seg[aria-selected="true"]{ background:var(--fg); color:var(--panel) }
 
-/* Switch */
+/* ===== Small Switch ===== */
 .switch{ display:inline-flex; align-items:center; gap:8px; color:var(--muted) }
 .switch .switch-label{ font-size:12.5px }
 .switch input{ display:none }
@@ -131,7 +146,7 @@ body{
 .switch input:checked + .track{ background:var(--fg) }
 .switch input:checked + .track::after{ transform:translateX(16px); background:var(--panel) }
 
-/* Live */
+/* ===== Live ===== */
 .live-wrap{ display:flex; gap:16px; align-items:center }
 .live-left{ min-width:140px }
 .live-percent{ font-size:64px; line-height:1; letter-spacing:-0.02em; color:var(--fg-strong) }
@@ -139,11 +154,11 @@ body{
 .bar{ width:100%; height:18px; background:var(--bar-bg); border-radius:10px; overflow:hidden; border:1px solid var(--stroke) }
 .fill{ height:100%; width:0; background:var(--bar); transition:width .5s cubic-bezier(.2,.7,.2,1) }
 
-/* Chart */
+/* ===== Chart ===== */
 .chart-wrap{ position:relative; height:300px }
 @media (max-width:640px){ .chart-wrap{ height:240px } }
 
-/* Textarea */
+/* ===== Textarea ===== */
 .textarea-auto{
   box-sizing:border-box; width:100%; min-height:80px; line-height:1.5;
   padding:14px 16px; border-radius:16px; resize:none; overflow:hidden;
@@ -151,7 +166,7 @@ body{
 }
 .textarea-auto::placeholder{ color:var(--muted) }
 
-/* Modal */
+/* ===== Modal ===== */
 .modal{ border:0; padding:0; background:transparent }
 .modal::backdrop{ background:rgba(0,0,0,.5) }
 .modal-card{
@@ -166,7 +181,7 @@ body{
 .modal-foot{ display:flex; align-items:center; gap:8px; padding:12px 14px; border-top:1px solid var(--stroke) }
 .modal-foot .spacer{ flex:1 }
 
-/* Calib */
+/* ===== Calibration ===== */
 .calib-summary{
   display:grid; gap:4px; margin-bottom:12px;
   padding:10px 12px; border:1px dashed var(--stroke);
@@ -180,20 +195,58 @@ body{
   border-radius:12px; margin-top:12px; background:var(--panel-tint)
 }
 
-/* Sidebar */
-.sidebar{ position: fixed; z-index: 70; top:0; left:0; bottom:0; width: 290px; background: var(--panel); color:var(--fg);
-  border-right: 1px solid var(--stroke); box-shadow: var(--shadow); transform: translateX(-100%); transition: transform .26s cubic-bezier(.2,.7,.2,1);
-  display:flex; flex-direction:column }
+/* ===== Sidebar (z-index stack fixed) ===== */
+.sidebar{
+  position: fixed;
+  z-index: 120; /* over topbar & overlay */
+  top: 0; left: 0; bottom: 0;
+  width: 290px;
+  background: var(--panel);
+  color: var(--fg);
+  border-right: 1px solid var(--stroke);
+  box-shadow: var(--shadow);
+  transform: translateX(-100%);
+  transition: transform .26s cubic-bezier(.2,.7,.2,1);
+  display: flex; flex-direction: column;
+}
 .sidebar.open{ transform: translateX(0) }
-.sidebar-head{ display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--stroke) }
-.sidebar-foot{ margin-top:auto; padding:12px 14px; border-top:1px solid var(--stroke) }
-.sidebar-overlay{ position: fixed; inset:0; z-index:65; background:rgba(0,0,0,.25) }
-.plant-list{ padding:8px; display:flex; flex-direction:column; gap:6px; overflow:auto }
-.plant-item{ display:flex; align-items:center; justify-content:space-between; gap:8px; border:1px solid var(--stroke); background:var(--panel); border-radius:12px; padding:10px 12px; cursor:pointer; color:var(--fg) }
-.plant-item[aria-selected="true"]{ background:var(--fg); color:var(--panel); border-color:var(--fg) }
-.plant-meta{ color:var(--muted); font-size:12px }
 
-/* Responsive */
+.sidebar-head{
+  display:flex; align-items:center; gap:10px;
+  padding:12px 14px; border-bottom:1px solid var(--stroke)
+}
+.sidebar-foot{ margin-top:auto; padding:12px 14px; border-top:1px solid var(--stroke) }
+
+/* overlay sits under sidebar, above content */
+.sidebar-overlay{
+  position: fixed; inset: 0;
+  z-index: 110; /* under 120 sidebar, above 100 topbar */
+  background: rgba(0,0,0,.25);
+}
+
+.plant-list{
+  padding:8px;
+  display:flex; flex-direction:column; gap:6px;
+  overflow:auto;
+}
+
+.plant-item{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  border:1px solid var(--stroke);
+  background:var(--panel);
+  border-radius:12px; padding:10px 12px;
+  cursor:pointer;
+  color:var(--fg);
+}
+.plant-item[aria-selected="true"]{
+  background:var(--fg);
+  color:var(--panel);
+  border-color:var(--fg);
+}
+.plant-name{ color: inherit }
+.plant-meta{ color: var(--muted); font-size:12px }
+
+/* ===== Responsive ===== */
 @media (max-width: 640px){
   .card-head{ flex-direction:column; align-items:flex-start; gap:10px }
   .head-tools{ width:100%; gap:8px; flex-wrap:wrap }

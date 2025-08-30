@@ -1,9 +1,3 @@
-//
-//  wipe-history.js
-//  
-//
-//  Created by Loris Schulz on 31.08.25.
-//
 // file: api/wipe-history.js
 import { createClient } from "redis";
 
@@ -46,26 +40,30 @@ export default async function handler(req, res){
     const keySum     = `soil:${id}:agg10m:sum`;
     const keyCnt     = `soil:${id}:agg10m:cnt`;
 
+    // "Alle Daten" löschen
     if (all === true || Number(hours) === 25) {
       await Promise.all([ r.del(keyHistory), r.del(keyAgg10m), r.del(keyCurWin), r.del(keySum), r.del(keyCnt) ]);
       return res.json({ ok:true, mode:"all" });
     }
 
+    // Teilweise löschen: älter als X Stunden (1..24)
     const h = Number(hours);
     if (!Number.isFinite(h) || h < 1 || h > 24) return res.status(400).json({ error:"hours_between_1_and_24_required" });
-
     const cutoff = Date.now() - h*60*60*1000;
 
+    // History neu aufbauen
     const histList = await r.lRange(keyHistory, 0, 20000);
     const histKept = [];
     for (const s of histList) { try { const p=JSON.parse(s); const t=parseISO(p.at); if (t!=null && t>=cutoff) histKept.push(p); } catch{} }
     histKept.sort((a,b)=> parseISO(b.at)-parseISO(a.at));
 
+    // Agg10m neu aufbauen
     const aggList = await r.lRange(keyAgg10m, 0, 50000);
     const aggKept = [];
     for (const s of aggList) { try { const p=JSON.parse(s); const t=parseISO(p.at); if (t!=null && t>=cutoff) aggKept.push(p); } catch{} }
     aggKept.sort((a,b)=> parseISO(b.at)-parseISO(a.at));
 
+    // Atomar ersetzen
     const multi = r.multi();
     multi.del(keyHistory); multi.del(keyAgg10m);
     if (histKept.length){ for (const p of histKept) multi.lPush(keyHistory, JSON.stringify(p)); multi.lTrim(keyHistory,0,4000); }
