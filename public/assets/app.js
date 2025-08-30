@@ -77,7 +77,6 @@ const cssVar = (name, fallback) => getComputedStyle(document.documentElement).ge
 const asPercent = raw => {
   if (!config || config.rawDry==null || config.rawWet==null || config.rawDry===config.rawWet)
     return clamp((raw/RAW_MAX)*100,0,100);
-  // FIX: korrektes Delta (vorher: rawWet - rawWet → 0)
   return clamp(100*(raw - config.rawDry)/(config.rawWet - config.rawDry),0,100);
 };
 function autosize(el){ if (!el) return; el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }
@@ -87,6 +86,15 @@ function bindAutosize(el){
   el.addEventListener('input',h); window.addEventListener('resize',h,{passive:true});
   if (document.fonts?.ready) document.fonts.ready.then(h).catch(()=>{});
   el._autosizeBound = true; autosize(el);
+}
+
+// NEW: Live-UI zurücksetzen (wenn Sensor wechselt / keine Daten)
+function resetLiveUI(){
+  els.fill.style.width = "0%";
+  els.value.textContent = "—%";
+  els.raw.textContent = "—";
+  els.ts.textContent = "—";
+  currentDisplayedPercent = null;
 }
 
 // ==== Live UI ====
@@ -211,12 +219,13 @@ async function fetchSeries(range){
   });
   try{
     const r = await fetch(`/api/soil?sensorId=${encodeURIComponent(SENSOR_ID)}&range=${encodeURIComponent(range)}`, {cache:"no-store"});
-    if (r.status===204){ setSeries([]); return; }
+    if (r.status===204){ setSeries([]); resetLiveUI(); config=null; renderCalibSummary(); return; }
     const data = await r.json();
     if (data.config){ config = data.config; renderCalibSummary(); }
     if (data.latest){ latest = data.latest; updateLive(latest.raw, latest.at); }
+    else { resetLiveUI(); }
     setSeries(data.series||[]);
-  }catch{ setSeries([]); }
+  }catch{ setSeries([]); resetLiveUI(); }
 }
 
 async function pollLatest(){
@@ -340,8 +349,12 @@ async function loadSensors(){
       `;
       if (s.id === SENSOR_ID) item.setAttribute('aria-selected','true');
       item.addEventListener('click', ()=>{
+        // Reset State & UI, bevor wir neue Daten laden
         SENSOR_ID = s.id;
         localStorage.setItem("sensorId", SENSOR_ID);
+        latest = null; config = null; lastSeenAt = null;
+        resetLiveUI();
+        setSeries([]);
         list.querySelectorAll('.plant-item[aria-selected="true"]').forEach(el=>el.removeAttribute('aria-selected'));
         item.setAttribute('aria-selected','true');
         closeSidebar();
@@ -358,6 +371,10 @@ async function loadSensors(){
     if (sensors.length){
       fetchSeries(currentRange);
       fetchPlant();
+    } else {
+      resetLiveUI();
+      setSeries([]);
+      plantProfile=null; fillInfoUI();
     }
   } catch (e) { console.error(e); }
 }
@@ -370,13 +387,17 @@ els.np_save?.addEventListener("click", async ()=>{
   if (!id) { alert("Bitte Sensor-ID eingeben!"); return; }
   try{
     const r = await fetch("/api/register",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ sensorId:id, name })});
-    if (!r.ok) throw 0;
+    if (!r.ok) {
+      const txt = await r.text().catch(()=> "");
+      alert(`Fehler beim Anlegen: ${r.status} ${txt}`);
+      return;
+    }
     els.newPlantModal?.close();
     els.np_id.value = ""; els.np_name.value = "";
     await loadSensors();
     SENSOR_ID = id; localStorage.setItem("sensorId", id);
     fetchSeries(currentRange); fetchPlant();
-  }catch{ alert("Fehler beim Anlegen!"); }
+  }catch(e){ alert("Fehler beim Anlegen!"); }
 });
 
 // ==== Info modal (Stats + Löschen) ====
@@ -422,8 +443,9 @@ async function deleteCurrentPlant(){
     });
     if (!r.ok) {
       const txt = await r.text().catch(()=> "");
+      alert(`Löschen fehlgeschlagen: ${r.status} ${txt}`);
       console.error("Delete failed", r.status, txt);
-      throw new Error(`Delete ${r.status}`);
+      return;
     }
     els.infoModal?.close();
     await loadSensors();
@@ -436,11 +458,12 @@ async function deleteCurrentPlant(){
       SENSOR_ID = null; localStorage.removeItem("sensorId");
       setSeries([]); plantProfile = null; fillInfoUI();
       latest = null; config = null; renderCalibSummary();
+      resetLiveUI();
     }
     alert("Pflanze und alle zugehörigen Daten wurden entfernt.");
   }catch(e){
     console.error(e);
-    alert("Löschen fehlgeschlagen.");
+    alert("Löschen fehlgeschlagen (Netzwerkfehler).");
   }
 }
 els.deletePlantBtn?.addEventListener("click", deleteCurrentPlant);

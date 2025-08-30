@@ -20,20 +20,12 @@ async function readJson(req) {
   try { return JSON.parse(raw); } catch { return {}; }
 }
 
-function checkAdmin(req) {
-  const need = process.env.ADMIN_TOKEN;
-  if (!need) return true;
-  const got = req.headers["x-admin-token"] || req.headers["x-admin"];
-  return got === need;
-}
-
 export default async function handler(req, res){
   res.setHeader("Access-Control-Allow-Origin","*");
   res.setHeader("Access-Control-Allow-Methods","POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers","Content-Type, X-Admin-Token, X-Admin");
+  res.setHeader("Access-Control-Allow-Headers","Content-Type");
   if (req.method==="OPTIONS") return res.status(204).end();
   if (req.method!=="POST") { res.setHeader("Allow",["POST"]); return res.status(405).end("Method Not Allowed"); }
-  if (!checkAdmin(req)) return res.status(401).json({ error:"unauthorized" });
 
   const { sensorId } = await readJson(req);
   const id = (sensorId || "").toString().trim();
@@ -41,6 +33,7 @@ export default async function handler(req, res){
 
   const r = await redis();
 
+  // bekannte Schlüssel
   const fixed = [
     `soil:${id}:latest`,
     `soil:${id}:history`,
@@ -53,6 +46,7 @@ export default async function handler(req, res){
     `soil:${id}:notes`,
   ];
 
+  // zusätzlich alles mit Prefix erwischen
   const extra = [];
   let cursor = "0";
   const pattern = `soil:${id}:*`;
