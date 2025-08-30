@@ -1,4 +1,5 @@
 // file: public/assets/app.js
+
 // ==== Config & State ====
 const POLL_MS = 3000;
 const RAW_MAX = 4095;
@@ -79,6 +80,7 @@ els.themeToggle?.addEventListener("click", ()=>{
 // ==== Helpers ====
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 const cssVar = (name, fallback) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+
 // FIX: korrektes Delta (rawWet - rawDry) + NaN/Inf-Schutz
 const asPercent = raw => {
   const r = Number(raw);
@@ -100,6 +102,7 @@ const asPercent = raw => {
   if (!Number.isFinite(p)) p = 0;
   return clamp(p, 0, 100);
 };
+
 function autosize(el){ if (!el) return; el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }
 function bindAutosize(el){
   if (!el || el._autosizeBound) return;
@@ -385,7 +388,7 @@ async function loadSensors(){
     const data = await r.json();
     const sensors = (data.sensors || []);
     const list = els.plantList;
-    list.innerHTML = "";
+    if (list) list.innerHTML = "";
 
     sensors.forEach(s=>{
       const item = document.createElement('button');
@@ -408,7 +411,7 @@ async function loadSensors(){
         fetchSeries(currentRange);
         fetchPlant();
       });
-      list.appendChild(item);
+      list?.appendChild(item);
     });
 
     if (!sensors.some(s=>s.id===SENSOR_ID) && sensors.length){
@@ -420,6 +423,12 @@ async function loadSensors(){
       fetchPlant();
     } else {
       resetLiveUI(); setSeries([]); plantProfile=null; fillInfoUI();
+      // Optional: Empty State
+      const empty = document.createElement('div');
+      empty.className = 'plant-item';
+      empty.style.cursor = 'default';
+      empty.innerHTML = `<span class="plant-name">Keine Pflanzen</span><span class="plant-meta">Lege eine neue an</span>`;
+      list?.appendChild(empty);
     }
   } catch (e) { console.error(e); }
 }
@@ -528,7 +537,7 @@ async function deleteCurrentPlant(){
   if (btn){ btn.disabled = true; btn.textContent = "Lösche…"; }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(()=>controller.abort(), 10000); // 10s
+  const timeoutId = setTimeout(()=>controller.abort(), 10000); // 10s Timeout
 
   try{
     const r = await fetch("/api/delete-plant", {
@@ -552,14 +561,16 @@ async function deleteCurrentPlant(){
     resetLiveUI(); setSeries([]); plantProfile = null; fillInfoUI(); renderCalibSummary();
 
     await loadSensors();
-    const first = els.plantList?.querySelector('.plant-item');
+    const first = els.plantList?.querySelector('.plant-item[data-id]');
     if (first){
       const newId = first.dataset.id;
-      SENSOR_ID = newId;
-      localStorage.setItem("sensorId", newId);
-      first.setAttribute('aria-selected','true');
-      fetchSeries(currentRange);
-      fetchPlant();
+      if (newId){
+        SENSOR_ID = newId;
+        localStorage.setItem("sensorId", newId);
+        first.setAttribute('aria-selected','true');
+        fetchSeries(currentRange);
+        fetchPlant();
+      }
     } else {
       alert(`„${displayName}“ wurde entfernt. Es sind keine Pflanzen mehr vorhanden.`);
     }
