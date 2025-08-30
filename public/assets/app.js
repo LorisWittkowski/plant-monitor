@@ -39,8 +39,9 @@ const els = {
   newPlantModal: $("#newPlantModal"),
   np_id: $("#np_id"), np_name: $("#np_name"), np_save: $("#np_save"),
 
-  // Info + Wipe
+  // Info + Wipe + Arduino
   infoBtn: $("#infoBtn"),
+  arduinoBtn: $("#arduinoBtn"),
   infoModal: $("#infoModal"),
   info_sensorId: $("#info_sensorId"),
   info_name: $("#info_name"),
@@ -584,6 +585,16 @@ async function deleteCurrentPlant(){
   }
 }
 els.deletePlantBtn?.addEventListener("click", deleteCurrentPlant);
+
+// === Arduino Generator (lazy load) ===
+async function openArduinoGenerator(){
+  // loadScript kommt aus index.html (global)
+  if (!window.ArduinoGen) {
+    await loadScript("/assets/arduino-gen.js");
+  }
+  window.ArduinoGen.open();
+}
+els.arduinoBtn?.addEventListener("click", openArduinoGenerator);
 
 // ==== Range + Save bindings ====
 els.rangeButtons().forEach(b=> b.addEventListener("click", ()=>{

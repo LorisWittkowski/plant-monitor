@@ -20,7 +20,7 @@
 :root[data-theme="dark"]{
   --bg:#121416;
   --panel:#171a1e;
-  --fg:#e7eaee;          /* fix: all text uses fg in dark */
+  --fg:#e7eaee;          /* all text flips to light */
   --fg-strong:#ffffff;
   --muted:#a3aab1;
   --stroke:#242a31;
@@ -44,6 +44,10 @@ body{
 }
 a{ color:inherit; text-decoration:none }
 .text-danger{ color:var(--danger) }
+.mono{ font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+.small{ font-size:12.5px }
+.big{ font-size:22px }
+.muted{ color:var(--muted) }
 
 /* ===== Containers ===== */
 .container{ max-width:1100px; margin:0 auto; padding:16px }
@@ -92,16 +96,19 @@ a{ color:inherit; text-decoration:none }
 
 /* ===== Inputs & Buttons ===== */
 .label{ display:block; margin:2px 0 6px; color:var(--muted) }
-.input{
+.input,
+.select{
   width:100%; padding:14px 16px; border-radius:16px;
   background:var(--panel); color:var(--fg);
   border:1px solid var(--stroke); outline:none;
+  appearance:none;
 }
 .input::placeholder{ color:var(--muted) }
-.input:focus-visible{
+.input:focus-visible, .select:focus-visible, textarea:focus-visible{
   border-color:var(--fg);
   box-shadow:0 0 0 2px color-mix(in oklab, var(--fg) 20%, transparent);
 }
+select.select{ background-image: none }
 
 .btn{
   border:1px solid var(--stroke);
@@ -120,10 +127,6 @@ a{ color:inherit; text-decoration:none }
 .btn.ghost{ background:transparent }
 .btn.danger-outline{ background:transparent; color:var(--danger); border-color:var(--danger) }
 .btn.danger-outline:hover{ background:var(--danger-weak) }
-.muted{ color:var(--muted) }
-.small{ font-size:12.5px }
-.mono{ font-variant-numeric: tabular-nums }
-.big{ font-size:22px }
 
 /* ===== Segmented Range ===== */
 .range{ display:flex; gap:6px; padding:4px; border:1px solid var(--stroke); border-radius:16px; background:var(--panel-tint) }
@@ -165,6 +168,7 @@ a{ color:inherit; text-decoration:none }
   background:var(--panel); color:var(--fg); border:1px solid var(--stroke);
 }
 .textarea-auto::placeholder{ color:var(--muted) }
+textarea[readonly]{ opacity:.95; }
 
 /* ===== Modal ===== */
 .modal{ border:0; padding:0; background:transparent }
@@ -172,7 +176,7 @@ a{ color:inherit; text-decoration:none }
 .modal-card{
   background:var(--panel); color:var(--fg);
   border:1px solid var(--stroke); border-radius:20px;
-  width:min(680px,92vw); box-shadow:var(--shadow); overflow:hidden;
+  width:min(840px,92vw); box-shadow:var(--shadow); overflow:hidden;
 }
 .modal-head{ display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--stroke) }
 .modal-head h4{ margin:0 }
@@ -246,6 +250,24 @@ a{ color:inherit; text-decoration:none }
 .plant-name{ color: inherit }
 .plant-meta{ color: var(--muted); font-size:12px }
 
+/* ===== Arduino Generator ===== */
+#arduinoList .arduino-row{
+  display:grid;
+  grid-template-columns: 1fr 160px 1fr;
+  gap:10px;
+  align-items:end;
+  padding:10px 0;
+  border-bottom:1px dashed var(--stroke);
+}
+#arduinoList .arduino-row:last-child{ border-bottom:none }
+.pin-select{ min-width:140px }
+#arduinoCode{
+  font-size:13px;
+  line-height:1.45;
+  white-space:pre;
+  overflow:auto;
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 640px){
   .card-head{ flex-direction:column; align-items:flex-start; gap:10px }
@@ -253,4 +275,5 @@ a{ color:inherit; text-decoration:none }
   .range{ flex:1 }
   .btn.seg{ flex:1; text-align:center }
   .grid2{ grid-template-columns:1fr }
-}
+  #arduinoList .arduino-row{ grid-template-columns: 1fr 1fr; }
+}c

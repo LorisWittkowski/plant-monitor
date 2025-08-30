@@ -13,7 +13,7 @@
     <h2 class="brand" style="margin-bottom:12px">🔒 Plant Monitor Login</h2>
     <label class="field">
       <span class="label">PIN</span>
-      <input id="pinInput" class="input" type="password" inputmode="numeric" placeholder="PIN eingeben" />
+      <input id="pinInput" class="input" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN eingeben" />
     </label>
     <div style="display:flex; gap:8px; align-items:center; margin-top:10px">
       <button id="pinBtn" class="btn primary">Login</button>
@@ -29,6 +29,8 @@
         <button id="menuBtn" class="btn tiny icon-left" aria-label="Seitenmenü öffnen">☰</button>
         <h1 class="brand">Plant Monitor</h1>
         <div class="actions">
+          <!-- Arduino Button -->
+          <button id="arduinoBtn" class="btn tiny" title="Arduino-Code Generator">Arduino</button>
           <button id="logoutBtn" class="btn tiny" aria-label="Logout">Logout</button>
           <button id="themeToggle" class="btn tiny" aria-label="Theme umschalten">Dark</button>
           <button id="calibBtn" class="btn primary">Kalibrieren</button>
@@ -129,7 +131,7 @@
       <div class="modal-card">
         <header class="modal-head">
           <h4>Neue Pflanze anlegen</h4>
-          <button class="btn icon close" onclick="this.closest('dialog').close();">✕</button>
+          <button class="btn icon close" onclick="this.closest('dialog').close();" aria-label="Schließen">✕</button>
         </header>
         <div class="modal-body">
           <label class="field">
@@ -274,11 +276,60 @@
         </footer>
       </div>
     </dialog>
+
+    <!-- 🛠️ Arduino Code Generator -->
+    <dialog id="arduinoModal" class="modal">
+      <div class="modal-card">
+        <header class="modal-head">
+          <h4>Arduino-Code Generator</h4>
+          <button class="btn icon close" onclick="this.closest('dialog').close();" aria-label="Schließen">✕</button>
+        </header>
+        <div class="modal-body">
+          <p class="muted small" style="margin-top:0">
+            Ordne jeder Pflanze einen <strong>Analog-Pin</strong> zu. Danach generierst du einen
+            <strong>kopierfertigen</strong> Sketch (Mehr-Sensor-Support, HTTPS-POST).
+          </p>
+
+          <div id="arduinoList" class="stack" style="margin-top:8px"></div>
+
+          <div class="card subtle" style="padding:12px; margin-top:12px">
+            <div class="grid2 gap">
+              <label class="field">
+                <span class="label">Wi-Fi SSID</span>
+                <input id="ard_ssid" class="input" placeholder="<DEINE_SSID>" />
+              </label>
+              <label class="field">
+                <span class="label">Wi-Fi Passwort</span>
+                <input id="ard_pass" class="input" placeholder="<DEIN_PASSWORT>" />
+              </label>
+              <label class="field">
+                <span class="label">Host (Vercel)</span>
+                <input id="ard_host" class="input" placeholder="plant-monitor.example.vercel.app" />
+              </label>
+              <label class="field">
+                <span class="label">Ingest-Token</span>
+                <input id="ard_token" class="input" placeholder="<INGEST_TOKEN>" />
+              </label>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:8px; margin-top:10px">
+            <button id="arduinoGenBtn" class="btn primary">Code generieren</button>
+            <button id="arduinoCopyBtn" class="btn">In Zwischenablage kopieren</button>
+          </div>
+
+          <label class="field" style="margin-top:12px">
+            <span class="label">Generierter Code</span>
+            <textarea id="arduinoCode" class="textarea-auto mono" style="min-height:280px" readonly placeholder="// Code wird hier erzeugt …"></textarea>
+          </label>
+        </div>
+      </div>
+    </dialog>
   </div>
 
   <!-- 🔧 Login-/Unlock-Logik + Lazy-Loading -->
   <script>
-    // PIN = "water" (SHA-256)
+    // PIN = "water" (du kannst USE_HASH=true + PIN_HASH nutzen)
     const USE_HASH = false;
     const PIN_PLAINTEXT = "water";
     const PIN_HASH = "3ad843de61d1d6d13b3ee863d07be4c6569d7b0c3f9cfdfad3a86e0d94369a6a";
