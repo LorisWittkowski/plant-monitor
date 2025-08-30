@@ -170,10 +170,7 @@
     // 1) Neuen Hash erzeugen (siehe Kommentar weiter unten)
     // 2) PIN_HASH hier ersetzen
     const USE_HASH = true; // true = vergleicht Hash; false = vergleicht Klartext-PIN
-    const PIN_PLAINTEXT = "1234"; // nur relevant, wenn USE_HASH=false ist
-    // SHA-256 von "1234":
-    const PIN_HASH = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
-
+    const PIN_HASH = "3ad843de61d1d6d13b3ee863d07be4c6569d7b0c3f9cfdfad3a86e0d94369a6a";
     // Eigenen Hash erzeugen (Browser-Konsole):
     // (async s=>{const h=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
     // console.log(Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join(''))})('DEINE_PIN');
