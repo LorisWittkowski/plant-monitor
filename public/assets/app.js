@@ -428,38 +428,7 @@ els.np_save?.addEventListener("click", async ()=>{
   }catch(e){ alert("Fehler beim Anlegen!"); }
 });
 
-// ==== Info modal + Delete ====
-// NEU: Helfer für kleine Wartepausen (Timing-Race vermeiden)
-const sleep = (ms)=>new Promise(r=>setTimeout(r, ms));
-
-async function openInfo(){
-  if (!SENSOR_ID) return;
-  try{
-    const r = await fetch(`/api/plant-stats?sensorId=${encodeURIComponent(SENSOR_ID)}`, {cache:"no-store"});
-    const data = r.ok ? await r.json() : null;
-    els.info_sensorId.textContent = data?.sensorId || SENSOR_ID;
-    const name = plantProfile?.name || data?.profile?.name || SENSOR_ID;
-    els.info_name.textContent = name;
-    els.info_created.textContent = data?.profile?.createdAt ? new Date(data.profile.createdAt).toLocaleString() : "—";
-    els.info_updated.textContent = data?.profile?.updatedAt ? new Date(data.profile.updatedAt).toLocaleString() : "—";
-    const c = data?.counts || {};
-    els.info_counts.textContent = `${c.history ?? 0} / ${c.agg10m ?? 0} / ${c.notes ?? 0}`;
-    const b = data?.bytes || {};
-    const toKB = v => (v ? Math.round(v/1024) : 0);
-    els.info_size.textContent = `${toKB(b.total)} KB (gesamt)`;
-  }catch{
-    els.info_sensorId.textContent = SENSOR_ID;
-    els.info_name.textContent = plantProfile?.name || SENSOR_ID;
-    els.info_created.textContent = "—";
-    els.info_updated.textContent = "—";
-    els.info_counts.textContent = "—";
-    els.info_size.textContent = "—";
-  }
-  els.infoModal?.showModal();
-}
-els.infoBtn?.addEventListener("click", openInfo);
-
-// ÜBERARBEITET: Deutlichere UX + garantierter UI-Reset
+// --- ersetze die komplette Funktion deleteCurrentPlant() ---
 async function deleteCurrentPlant(){
   if (!SENSOR_ID) { alert("Keine Pflanze ausgewählt."); return; }
 
@@ -472,59 +441,55 @@ async function deleteCurrentPlant(){
   const oldLabel = btn?.textContent;
   if (btn){ btn.disabled = true; btn.textContent = "Lösche…"; }
 
+  // Request mit Timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(()=>controller.abort(), 10000); // 10s
+
   try{
-    // Request
     const r = await fetch("/api/delete-plant", {
       method:"POST",
       headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({ sensorId: SENSOR_ID })
+      body: JSON.stringify({ sensorId: SENSOR_ID }),
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
 
     if (!r.ok) {
       const txt = await r.text().catch(()=> "");
       throw new Error(`Serverfehler ${r.status}: ${txt}`);
     }
 
-    // Modalschließen + UI resetten
+    // Modalschließen + State hart resetten (kein Ghost-State)
     els.infoModal?.close();
 
-    // Wähle eine neue aktive Pflanze oder leere die Ansicht
-    const deletedId = SENSOR_ID;
-
-    // State leeren – damit keine „Geisterwerte“ bleiben
     SENSOR_ID = null;
     localStorage.removeItem("sensorId");
     latest = null; config = null; lastSeenAt = null;
     resetLiveUI(); setSeries([]); plantProfile = null; fillInfoUI(); renderCalibSummary();
 
-    // Sidebar neu laden
+    // Sidebar neu laden und ggf. erste Pflanze aktivieren
     await loadSensors();
-    await sleep(50); // UI einmal atmen lassen
 
     const first = els.plantList?.querySelector('.plant-item');
     if (first){
       const newId = first.dataset.id;
       SENSOR_ID = newId;
       localStorage.setItem("sensorId", newId);
-      // visuell selecten & Daten laden
       first.setAttribute('aria-selected','true');
       fetchSeries(currentRange);
       fetchPlant();
     } else {
-      // Es gibt keine Pflanzen mehr → alles leer lassen
       alert(`„${displayName}“ wurde entfernt. Es sind keine Pflanzen mehr vorhanden.`);
     }
 
   }catch(e){
-    console.error(e);
-    alert(`Löschen fehlgeschlagen: ${e.message || e}`);
+    const reason = e?.name === "AbortError" ? "Zeitüberschreitung (10s)" : (e?.message || e);
+    alert(`Löschen fehlgeschlagen: ${reason}`);
   }finally{
+    clearTimeout(timeoutId);
     if (btn){ btn.disabled = false; btn.textContent = oldLabel; }
   }
 }
-els.deletePlantBtn?.addEventListener("click", deleteCurrentPlant);
-
-// ... (alles unten unverändert)
 
 // ==== Range + Save bindings ====
 els.rangeButtons().forEach(b=> b.addEventListener("click", ()=>{
