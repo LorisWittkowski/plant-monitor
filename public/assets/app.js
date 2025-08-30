@@ -79,10 +79,26 @@ els.themeToggle?.addEventListener("click", ()=>{
 // ==== Helpers ====
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 const cssVar = (name, fallback) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+// FIX: korrektes Delta (rawWet - rawDry) + NaN/Inf-Schutz
 const asPercent = raw => {
-  if (!config || config.rawDry==null || config.rawWet==null || config.rawDry===config.rawWet)
-    return clamp((raw/RAW_MAX)*100,0,100);
-  return clamp(100*(raw - config.rawDry)/(config.rawWet - config.rawWet),0,100);
+  const r = Number(raw);
+  if (!Number.isFinite(r)) return 0;
+
+  const hasCfg = config
+    && Number.isFinite(config.rawDry)
+    && Number.isFinite(config.rawWet)
+    && config.rawDry !== config.rawWet;
+
+  let p;
+  if (hasCfg) {
+    const denom = (config.rawWet - config.rawDry);
+    p = 100 * (r - config.rawDry) / denom;
+  } else {
+    p = 100 * (r / RAW_MAX);
+  }
+
+  if (!Number.isFinite(p)) p = 0;
+  return clamp(p, 0, 100);
 };
 function autosize(el){ if (!el) return; el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }
 function bindAutosize(el){
@@ -104,11 +120,12 @@ const sleep = (ms)=>new Promise(r=>setTimeout(r, ms));
 // ==== Live UI ====
 function updateLive(raw, atIso){
   const p = asPercent(raw);
-  els.fill.style.width = p.toFixed(1) + "%";
-  const show = Math.round(p);
-  if (currentDisplayedPercent==null || Math.abs(currentDisplayedPercent - p) >= 1)
+  const safeP = Number.isFinite(p) ? p : 0;
+  els.fill.style.width = safeP.toFixed(1) + "%";
+  const show = Math.round(safeP);
+  if (currentDisplayedPercent==null || Math.abs(currentDisplayedPercent - safeP) >= 1)
     els.value.textContent = show + "%";
-  currentDisplayedPercent = p;
+  currentDisplayedPercent = safeP;
   els.raw.textContent = raw;
   els.ts.textContent = new Date(atIso).toLocaleString();
 }
