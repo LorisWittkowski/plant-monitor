@@ -21,7 +21,7 @@
     </div>
   </div>
 
-  <!-- 🌿 App (versteckt bis Login) -->
+  <!-- 🌿 App (hidden bis Login) -->
   <div id="app" hidden>
     <!-- Sticky Topbar -->
     <header class="topbar">
@@ -32,6 +32,7 @@
           <button id="logoutBtn" class="btn tiny" aria-label="Logout">Logout</button>
           <button id="themeToggle" class="btn tiny" aria-label="Theme umschalten">Dark</button>
           <button id="calibBtn" class="btn primary">Kalibrieren</button>
+          <button id="infoBtn" class="btn">Info</button>
         </div>
       </div>
     </header>
@@ -50,15 +51,11 @@
     <div id="sidebarOverlay" class="sidebar-overlay" hidden></div>
 
     <main class="container stack">
-
       <!-- Pflanzendaten -->
       <section class="card">
         <header class="card-head">
           <h2>Pflanzendaten</h2>
-          <div style="display:flex; gap:8px">
-            <button id="infoBtn" class="btn tiny" title="Info & Verwaltung">Info</button>
-            <button id="saveInfo" class="btn primary">Speichern</button>
-          </div>
+          <button id="saveInfo" class="btn primary">Speichern</button>
         </header>
 
         <div class="grid2 gap">
@@ -125,7 +122,6 @@
           <canvas id="chart"></canvas>
         </div>
       </section>
-
     </main>
 
     <!-- Neue Pflanze -->
@@ -187,30 +183,59 @@
           </div>
         </div>
         <footer class="modal-foot">
+          <button id="openWipeBtn" class="btn">🧹 Historie zurücksetzen</button>
+          <div class="spacer"></div>
           <button id="deletePlantBtn" class="btn danger-outline">🗑️ Pflanze löschen</button>
         </footer>
       </div>
     </dialog>
 
-    <!-- ⚙️ Kalibrierung (pro Sensor) -->
+    <!-- Mini-Dialog: Historie zurücksetzen -->
+    <dialog id="wipeModal" class="modal">
+      <div class="modal-card">
+        <header class="modal-head">
+          <h4>Historie zurücksetzen</h4>
+          <button class="btn icon close" onclick="this.closest('dialog').close();" aria-label="Schließen">✕</button>
+        </header>
+        <div class="modal-body">
+          <p class="muted small" style="margin-top:0">
+            Wähle, welche Daten gelöscht werden sollen. Betroffen sind <strong>History</strong> und die <strong>10-Min-Aggregation</strong>.
+            Profil &amp; Kalibrierung bleiben erhalten.
+          </p>
+
+          <div class="card subtle" style="padding:12px">
+            <label class="field">
+              <span class="label">Zeitraum</span>
+              <input id="wipeRange" class="input" type="range" min="1" max="25" step="1" value="24" />
+            </label>
+            <div style="display:flex; align-items:center; gap:10px">
+              <div class="muted small">Älter als</div>
+              <div id="wipeLabel" class="mono big">24&nbsp;h</div>
+            </div>
+            <div class="muted small">
+              1–24&nbsp;h: löscht Einträge <em>älter</em> als X&nbsp;Stunden · 25&nbsp;h: <strong>Alle</strong> historischen Daten
+            </div>
+          </div>
+        </div>
+        <footer class="modal-foot">
+          <button id="wipeConfirm" class="btn primary">Zurücksetzen</button>
+        </footer>
+      </div>
+    </dialog>
+
+    <!-- ⚙️ Kalibrierung -->
     <dialog id="calibModal" class="modal">
       <div class="modal-card">
         <header class="modal-head">
           <h4>Kalibrierung – <span id="calibPlantName">—</span></h4>
           <button class="btn icon close" onclick="this.closest('dialog').close();" aria-label="Schließen">✕</button>
         </header>
-
         <div class="modal-body">
-          <!-- Summary -->
           <section class="calib-summary">
-            <div class="row1">
-              <strong>Aktuell:</strong>
-              <span id="calibLabel">Keine Kalibrierung gespeichert</span>
-            </div>
+            <div class="row1"><strong>Aktuell:</strong> <span id="calibLabel">Keine Kalibrierung gespeichert</span></div>
             <div class="row2" id="calibMeta">Fallback aktiv (0–4095 → %)</div>
           </section>
 
-          <!-- Two columns -->
           <div class="grid2 gap">
             <div class="card subtle">
               <div class="field">
@@ -220,7 +245,7 @@
                   <button id="useDryNow" class="btn tiny">Aktuell</button>
                 </div>
               </div>
-              <p class="muted small">Sensor in trockene Erde/ Luft halten, „Aktuell“ übernehmen.</p>
+              <p class="muted small">Sensor trocken, „Aktuell“ übernehmen.</p>
             </div>
 
             <div class="card subtle">
@@ -231,28 +256,17 @@
                   <button id="useWetNow" class="btn tiny">Aktuell</button>
                 </div>
               </div>
-              <p class="muted small">Sensor in nasse Erde/ Wasser halten, „Aktuell“ übernehmen.</p>
+              <p class="muted small">Sensor nass, „Aktuell“ übernehmen.</p>
             </div>
           </div>
 
           <div class="calib-preview">
-            <div>
-              <div class="muted small">Aktueller RAW</div>
-              <div id="liveRaw" class="mono big">—</div>
-            </div>
-            <div>
-              <div class="muted small">Ergibt (mit obiger Skala)</div>
-              <div id="livePct" class="mono big">—%</div>
-            </div>
+            <div><div class="muted small">Aktueller RAW</div><div id="liveRaw" class="mono big">—</div></div>
+            <div><div class="muted small">Ergibt (mit obiger Skala)</div><div id="livePct" class="mono big">—%</div></div>
             <div class="spacer"></div>
             <button id="readNow" class="btn">RAW jetzt lesen</button>
           </div>
-
-          <div class="note muted small">
-            Tipp: Je weiter „trocken“ und „nass“ auseinanderliegen, desto stabiler die Anzeige.
-          </div>
         </div>
-
         <footer class="modal-foot">
           <button id="resetCalib" class="btn ghost">Zurücksetzen</button>
           <div class="spacer"></div>
@@ -301,7 +315,7 @@
     window.addEventListener("DOMContentLoaded", ()=>{
       const logged = localStorage.getItem("plantLoggedIn") === "1";
       if (logged) unlock();
-      document.getElementById("pinBtn")?.addEventListener("click", checkPin);
+      document.getElementById("pinBtn")?.addEventListener("click", checkPin, { once:false, passive:true });
       document.getElementById("pinInput")?.addEventListener("keydown", e=>{ if (e.key === "Enter") checkPin(); });
       document.getElementById("logoutBtn")?.addEventListener("click", logout);
     });

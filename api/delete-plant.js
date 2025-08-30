@@ -20,7 +20,6 @@ async function readJson(req) {
   try { return JSON.parse(raw); } catch { return {}; }
 }
 
-// Keys in Blöcken löschen; bevorzugt UNLINK (non-blocking)
 async function deleteKeysChunked(r, keys, chunk=256){
   if (!keys || !keys.length) return 0;
   let deleted = 0;
@@ -31,10 +30,7 @@ async function deleteKeysChunked(r, keys, chunk=256){
     try {
       deleted += hasUnlink ? await r.unlink(...slice) : await r.del(...slice);
     } catch {
-      // Fallback: einzeln
-      for (const k of slice){
-        try { deleted += hasUnlink ? await r.unlink(k) : await r.del(k); } catch {}
-      }
+      for (const k of slice){ try { deleted += hasUnlink ? await r.unlink(k) : await r.del(k); } catch{} }
     }
   }
   return deleted;
@@ -53,15 +49,9 @@ export default async function handler(req, res){
     if (!id) return res.status(400).json({ error:"sensorId_required" });
 
     const r = await redis();
-    const pattern = `soil:${id}:*`;
 
-    // 1) Alle Keys per scanIterator einsammeln (robust in v4)
     const keys = [];
-    for await (const key of r.scanIterator({ MATCH: pattern, COUNT: 500 })) {
-      keys.push(key);
-    }
-
-    // 2) sicherheitshalber bekannte Keys ergänzen
+    for await (const key of r.scanIterator({ MATCH: `soil:${id}:*`, COUNT: 500 })) keys.push(key);
     [
       `soil:${id}:latest`,
       `soil:${id}:history`,
@@ -74,21 +64,11 @@ export default async function handler(req, res){
       `soil:${id}:notes`,
     ].forEach(k => keys.push(k));
 
-    // 3) Dedup
     const allKeys = Array.from(new Set(keys));
-
-    // 4) Löschen (auch wenn 0 Keys vorhanden sind → ok)
     const deleted = await deleteKeysChunked(r, allKeys, 256);
-
-    // 5) Aus Sensor-Set entfernen (damit in der Sidebar verschwindet)
     await r.sRem("soil:sensors", id);
 
-    return res.status(200).json({
-      ok: true,
-      sensorId: id,
-      scanned: allKeys.length,
-      deleted
-    });
+    return res.status(200).json({ ok:true, sensorId:id, scanned: allKeys.length, deleted });
   } catch (err) {
     console.error("delete-plant failed:", err);
     return res.status(500).send(String(err && (err.stack || err.message) || err));

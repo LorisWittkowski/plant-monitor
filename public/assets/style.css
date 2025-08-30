@@ -1,8 +1,4 @@
 /* file: public/assets/style.css */
-/* =======================
-   Plant Monitor – style.css
-   ======================= */
-
 :root{
   --bg:#f5f6f7;
   --panel:#ffffff;
@@ -19,7 +15,6 @@
   --danger-weak:#f7d8d8;
   --ok:#1a7f37;
 }
-
 :root[data-theme="dark"]{
   --bg:#121416;
   --panel:#171a1e;
@@ -52,7 +47,7 @@ body{
 .stack > *{ margin-bottom:16px }
 
 .topbar{
-  position: sticky; top:0; z-index:60;
+  position: sticky; top:0; z-index:80; /* vor Sidebar-Overlay */
   background:var(--bg);
   border-bottom:1px solid var(--stroke);
   color:var(--fg);
@@ -116,10 +111,7 @@ body{
 .big{ font-size:22px }
 
 /* Range */
-.range{
-  display:flex; gap:6px; padding:4px;
-  border:1px solid var(--stroke); border-radius:16px; background:var(--panel-tint);
-}
+.range{ display:flex; gap:6px; padding:4px; border:1px solid var(--stroke); border-radius:16px; background:var(--panel-tint) }
 .btn.seg{ border:none; background:transparent; color:var(--fg); padding:8px 12px; border-radius:12px }
 .btn.seg[aria-selected="true"]{ background:var(--fg); color:var(--panel) }
 

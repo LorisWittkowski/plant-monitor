@@ -21,7 +21,6 @@ const els = {
   dryInput: $("#dryInput"), wetInput: $("#wetInput"),
   useDryNow: $("#useDryNow"), useWetNow: $("#useWetNow"),
   readNow: $("#readNow"), liveRaw: $("#liveRaw"), livePct: $("#livePct"),
-  prevStep: $("#prevStep"), nextStep: $("#nextStep"),
   saveCalib: $("#saveCalib"), resetCalib: $("#resetCalib"),
   calibLabel: $("#calibLabel"), calibMeta: $("#calibMeta"), calibPlantName: $("#calibPlantName"),
   pi_name: $("#pi_name"), pi_species: $("#pi_species"),
@@ -39,7 +38,7 @@ const els = {
   newPlantModal: $("#newPlantModal"),
   np_id: $("#np_id"), np_name: $("#np_name"), np_save: $("#np_save"),
 
-  // Info modal
+  // Info + Wipe
   infoBtn: $("#infoBtn"),
   infoModal: $("#infoModal"),
   info_sensorId: $("#info_sensorId"),
@@ -49,6 +48,11 @@ const els = {
   info_counts: $("#info_counts"),
   info_size: $("#info_size"),
   deletePlantBtn: $("#deletePlantBtn"),
+  openWipeBtn: $("#openWipeBtn"),
+  wipeModal: $("#wipeModal"),
+  wipeRange: $("#wipeRange"),
+  wipeLabel: $("#wipeLabel"),
+  wipeConfirm: $("#wipeConfirm"),
 };
 
 // ==== Theme ====
@@ -78,7 +82,7 @@ const cssVar = (name, fallback) => getComputedStyle(document.documentElement).ge
 const asPercent = raw => {
   if (!config || config.rawDry==null || config.rawWet==null || config.rawDry===config.rawWet)
     return clamp((raw/RAW_MAX)*100,0,100);
-  return clamp(100*(raw - config.rawDry)/(config.rawWet - config.rawDry),0,100);
+  return clamp(100*(raw - config.rawDry)/(config.rawWet - config.rawWet),0,100);
 };
 function autosize(el){ if (!el) return; el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }
 function bindAutosize(el){
@@ -88,8 +92,6 @@ function bindAutosize(el){
   if (document.fonts?.ready) document.fonts.ready.then(h).catch(()=>{});
   el._autosizeBound = true; autosize(el);
 }
-
-// NEW: Live-UI zurücksetzen (wenn Sensor wechselt / keine Daten)
 function resetLiveUI(){
   els.fill.style.width = "0%";
   els.value.textContent = "—%";
@@ -97,6 +99,7 @@ function resetLiveUI(){
   els.ts.textContent = "—";
   currentDisplayedPercent = null;
 }
+const sleep = (ms)=>new Promise(r=>setTimeout(r, ms));
 
 // ==== Live UI ====
 function updateLive(raw, atIso){
@@ -116,9 +119,7 @@ function renderCalibSummary(){
   if (config && typeof config.rawDry==="number" && typeof config.rawWet==="number"){
     els.calibLabel.textContent = `DRY: ${config.rawDry} · WET: ${config.rawWet}`;
     const stamp = config.lastCalibrated || config.updatedAt;
-    els.calibMeta.textContent = stamp
-      ? `Zuletzt aktualisiert: ${new Date(stamp).toLocaleString()}`
-      : `Kalibrierung aktiv.`;
+    els.calibMeta.textContent = stamp ? `Zuletzt aktualisiert: ${new Date(stamp).toLocaleString()}` : `Kalibrierung aktiv.`;
   } else {
     els.calibLabel.textContent = "Keine Kalibrierung gespeichert";
     els.calibMeta.textContent = "Fallback: Prozent aus RAW (0..4095).";
@@ -144,16 +145,8 @@ function initChart(){
       responsive:true, maintainAspectRatio:false,
       animation:{ duration:350, easing:"easeOutCubic" },
       events:[],
-      plugins:{
-        legend:{ display:false },
-        tooltip:{ enabled:false },
-        decimation:{ enabled:true, algorithm:'lttb', samples:120 }
-      },
-      scales:{
-        x:{ display:false },
-        y:{ grid:{display:false}, ticks:{display:false},
-            border:{ display:true, color: cssVar('--muted','#9a9a9b') } }
-      },
+      plugins:{ legend:{ display:false }, tooltip:{ enabled:false }, decimation:{ enabled:true, algorithm:'lttb', samples:120 } },
+      scales:{ x:{ display:false }, y:{ grid:{display:false}, ticks:{display:false}, border:{ display:true, color: cssVar('--muted','#9a9a9b') } } },
       layout:{ padding:{ top:18, bottom:12, left:6, right:6 } }
     }
   });
@@ -173,10 +166,8 @@ function setSeries(points){
     .sort((a,b)=>a.t-b.t);
 
   if (config?.lastCalibrated || config?.updatedAt){
-    const hushBefore = 30*1000, hushAfter = 60*1000;
-    const t0 = new Date(config.lastCalibrated || config.updatedAt).toISOString();
-    const t0ms = Date.parse(t0);
-    norm = norm.map(p => (p.t >= t0ms-30000 && p.t <= t0ms+60000) ? {...p,y:null}:p);
+    const t0 = new Date(config.lastCalibrated || config.updatedAt).getTime();
+    norm = norm.map(p => (p.t >= t0-30000 && p.t <= t0+60000) ? {...p,y:null}:p);
   }
 
   if (norm.length===0 && latest){
@@ -284,10 +275,10 @@ async function savePlantProfile(){
   finally{ setTimeout(()=>{btn.textContent=old; btn.disabled=false;},900); }
 }
 
-// ==== Calibration (UI) ====
+// ==== Calibration UI ====
 function setCalibPreviewFromInputs(){
   const rawStr = els.liveRaw?.textContent;
-  const raw = Number(rawStr?.replace(/[^\d.]/g,'')); // tolerant
+  const raw = Number(rawStr?.replace(/[^\d.]/g,''));
   const dry = Number(els.dryInput?.value);
   const wet = Number(els.wetInput?.value);
   if (!Number.isFinite(raw) || !Number.isFinite(dry) || !Number.isFinite(wet) || dry===wet){
@@ -310,23 +301,26 @@ async function readCurrentRaw(){
     }
   }catch{ els.liveRaw.textContent = "—"; }
 }
+function safeShowModal(dlg){
+  try { dlg.showModal(); }
+  catch(e){ if (!dlg.open) dlg.setAttribute('open',''); } // Fallback, verhindert „Freeze“-Gefühl
+}
+function closeSidebar(){ els.sidebar?.classList.remove('open'); els.sidebar?.setAttribute('aria-hidden','true'); els.sidebarOverlay.hidden = true; }
 function openCalibModal(){
+  closeSidebar(); // Overlay weg → verhindert Klick-Blocker
   els.calibPlantName.textContent = plantProfile?.name || SENSOR_ID;
   renderCalibSummary();
-  // vorbefüllen, falls vorhanden
   els.dryInput.value = (config?.rawDry ?? "");
   els.wetInput.value = (config?.rawWet ?? "");
   els.liveRaw.textContent = "—";
   els.livePct.textContent = "—%";
-  els.modal?.showModal();
-  // direkt einmal versuchen zu lesen
+  safeShowModal(els.modal);
   readCurrentRaw();
 }
 els.calibBtn?.addEventListener("click", openCalibModal);
 els.useDryNow?.addEventListener("click", async ()=>{ await readCurrentRaw(); const v = Number(els.liveRaw.textContent); if (Number.isFinite(v)) els.dryInput.value = v; setCalibPreviewFromInputs(); });
 els.useWetNow?.addEventListener("click", async ()=>{ await readCurrentRaw(); const v = Number(els.liveRaw.textContent); if (Number.isFinite(v)) els.wetInput.value = v; setCalibPreviewFromInputs(); });
-els.readNow?.addEventListener("click", async ()=>{ await readCurrentRaw(); });
-
+els.readNow?.addEventListener("click", readCurrentRaw);
 els.dryInput?.addEventListener("input", setCalibPreviewFromInputs);
 els.wetInput?.addEventListener("input", setCalibPreviewFromInputs);
 
@@ -362,7 +356,6 @@ els.resetCalib?.addEventListener("click", async ()=>{
 
 // ==== Sidebar controls ====
 function openSidebar(){ els.sidebar?.classList.add('open'); els.sidebar?.setAttribute('aria-hidden','false'); els.sidebarOverlay.hidden = false; }
-function closeSidebar(){ els.sidebar?.classList.remove('open'); els.sidebar?.setAttribute('aria-hidden','true'); els.sidebarOverlay.hidden = true; }
 els.menuBtn?.addEventListener('click', openSidebar);
 els.sidebarClose?.addEventListener('click', closeSidebar);
 els.sidebarOverlay?.addEventListener('click', closeSidebar);
@@ -414,6 +407,7 @@ async function loadSensors(){
   } catch (e) { console.error(e); }
 }
 
+// Neue Pflanze
 els.addPlantBtn?.addEventListener("click", ()=> els.newPlantModal?.showModal());
 els.np_save?.addEventListener("click", async ()=>{
   const id = els.np_id?.value?.trim();
@@ -428,12 +422,87 @@ els.np_save?.addEventListener("click", async ()=>{
   }catch(e){ alert("Fehler beim Anlegen!"); }
 });
 
-// --- ersetze die komplette Funktion deleteCurrentPlant() ---
+// ==== Info modal + Wipe + Delete ====
+// „Info“-Freeze-Fix: Sidebar immer schließen & safeShowModal
+async function openInfo(){
+  if (!SENSOR_ID) return;
+  closeSidebar();
+  try{
+    const r = await fetch(`/api/plant-stats?sensorId=${encodeURIComponent(SENSOR_ID)}`, {cache:"no-store"});
+    const data = r.ok ? await r.json() : null;
+    els.info_sensorId.textContent = data?.sensorId || SENSOR_ID;
+    const name = plantProfile?.name || data?.profile?.name || SENSOR_ID;
+    els.info_name.textContent = name;
+    els.info_created.textContent = data?.profile?.createdAt ? new Date(data.profile.createdAt).toLocaleString() : "—";
+    els.info_updated.textContent = data?.profile?.updatedAt ? new Date(data.profile.updatedAt).toLocaleString() : "—";
+    const c = data?.counts || {};
+    els.info_counts.textContent = `${c.history ?? 0} / ${c.agg10m ?? 0} / ${c.notes ?? 0}`;
+    const b = data?.bytes || {};
+    els.info_size.textContent = `${b?.total ? Math.round(b.total/1024) : 0} KB (gesamt)`;
+  }catch{
+    els.info_sensorId.textContent = SENSOR_ID;
+    els.info_name.textContent = plantProfile?.name || SENSOR_ID;
+    els.info_created.textContent = "—";
+    els.info_updated.textContent = "—";
+    els.info_counts.textContent = "—";
+    els.info_size.textContent = "—";
+  }
+  safeShowModal(els.infoModal);
+}
+els.infoBtn?.addEventListener("click", openInfo, { passive:true });
+
+// Wipe-Dialog
+function renderWipeLabel(){
+  const v = Number(els.wipeRange?.value || 24);
+  els.wipeLabel.textContent = (v === 25) ? "ALLE Daten" : `${v} h`;
+}
+els.openWipeBtn?.addEventListener("click", ()=>{
+  if (!SENSOR_ID) { alert("Keine Pflanze ausgewählt."); return; }
+  if (els.wipeRange) els.wipeRange.value = "24";
+  renderWipeLabel();
+  safeShowModal(els.wipeModal);
+});
+els.wipeRange?.addEventListener("input", renderWipeLabel);
+
+els.wipeConfirm?.addEventListener("click", async ()=>{
+  if (!SENSOR_ID) return;
+  const v = Number(els.wipeRange.value);
+  const isAll = (v === 25);
+  const question = isAll
+    ? "Wirklich ALLE historischen Daten dieser Pflanze löschen?\n(History + 10-Min-Aggregation)"
+    : `Wirklich alle historischen Daten löschen, die älter sind als ${v} Stunden?`;
+  if (!confirm(question)) return;
+
+  const btn = els.wipeConfirm;
+  const old = btn.textContent;
+  btn.disabled = true; btn.textContent = "Setze zurück…";
+
+  try{
+    const r = await fetch("/api/wipe-history", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ sensorId: SENSOR_ID, hours: isAll? null : v, all: isAll })
+    });
+    if (!r.ok){
+      const t = await r.text().catch(()=> "");
+      throw new Error(`Serverfehler ${r.status}: ${t}`);
+    }
+    els.wipeModal?.close();
+    await fetchSeries(currentRange);
+    await openInfo();
+    alert("Historie wurde zurückgesetzt.");
+  }catch(e){
+    console.error(e);
+    alert(`Zurücksetzen fehlgeschlagen: ${e.message || e}`);
+  }finally{
+    btn.disabled = false; btn.textContent = old;
+  }
+});
+
+// Löschen (mit UI-Reset)
 async function deleteCurrentPlant(){
   if (!SENSOR_ID) { alert("Keine Pflanze ausgewählt."); return; }
-
   const displayName = plantProfile?.name || els.info_name?.textContent || SENSOR_ID;
-
   if (!confirm(`Wirklich löschen?\n"${displayName}" (ID: ${SENSOR_ID})`)) return;
   if (!confirm("Letzte Bestätigung: ALLE Daten dieser Pflanze werden gelöscht. Fortfahren?")) return;
 
@@ -441,7 +510,6 @@ async function deleteCurrentPlant(){
   const oldLabel = btn?.textContent;
   if (btn){ btn.disabled = true; btn.textContent = "Lösche…"; }
 
-  // Request mit Timeout
   const controller = new AbortController();
   const timeoutId = setTimeout(()=>controller.abort(), 10000); // 10s
 
@@ -459,7 +527,6 @@ async function deleteCurrentPlant(){
       throw new Error(`Serverfehler ${r.status}: ${txt}`);
     }
 
-    // Modalschließen + State hart resetten (kein Ghost-State)
     els.infoModal?.close();
 
     SENSOR_ID = null;
@@ -467,9 +534,7 @@ async function deleteCurrentPlant(){
     latest = null; config = null; lastSeenAt = null;
     resetLiveUI(); setSeries([]); plantProfile = null; fillInfoUI(); renderCalibSummary();
 
-    // Sidebar neu laden und ggf. erste Pflanze aktivieren
     await loadSensors();
-
     const first = els.plantList?.querySelector('.plant-item');
     if (first){
       const newId = first.dataset.id;
@@ -490,6 +555,7 @@ async function deleteCurrentPlant(){
     if (btn){ btn.disabled = false; btn.textContent = oldLabel; }
   }
 }
+els.deletePlantBtn?.addEventListener("click", deleteCurrentPlant);
 
 // ==== Range + Save bindings ====
 els.rangeButtons().forEach(b=> b.addEventListener("click", ()=>{
@@ -504,7 +570,6 @@ els.saveInfo?.addEventListener("click", savePlantProfile);
 
   initChart();
   loadSensors();
-
   if (els.pi_note) bindAutosize(els.pi_note);
   setInterval(pollLatest, POLL_MS);
 })();
