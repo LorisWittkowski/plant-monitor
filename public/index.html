@@ -24,19 +24,35 @@
 
   <!-- 🌿 App (versteckt bis Login) -->
   <div id="app" hidden>
-    <header class="topbar container">
-      <h1 class="brand">Plant Monitor</h1>
-      <div class="actions" style="gap:10px">
-        <!-- ▼ Pflanzen-Auswahl + Neu -->
-        <select id="sensorSelect" class="input" style="min-width:200px"></select>
-        <button id="addPlantBtn" class="btn tiny" title="Neue Pflanze anlegen">➕ Pflanze</button>
-
-        <!-- Tools -->
-        <button id="logoutBtn" class="btn tiny" aria-label="Logout">Logout</button>
-        <button id="themeToggle" class="btn tiny" aria-label="Theme umschalten">Dark</button>
-        <button id="calibBtn" class="btn primary">Kalibrieren</button>
+    <!-- Sticky Topbar -->
+    <header class="topbar">
+      <div class="container topbar-inner">
+        <button id="menuBtn" class="btn tiny icon-left" aria-label="Seitenmenü öffnen">
+          ☰
+        </button>
+        <h1 class="brand">Plant Monitor</h1>
+        <div class="actions">
+          <button id="logoutBtn" class="btn tiny" aria-label="Logout">Logout</button>
+          <button id="themeToggle" class="btn tiny" aria-label="Theme umschalten">Dark</button>
+          <button id="calibBtn" class="btn primary">Kalibrieren</button>
+        </div>
       </div>
     </header>
+
+    <!-- Sidebar + Overlay -->
+    <aside id="sidebar" class="sidebar" aria-hidden="true">
+      <div class="sidebar-head">
+        <strong>Pflanzen</strong>
+        <button id="sidebarClose" class="btn icon" aria-label="Schließen">✕</button>
+      </div>
+      <nav class="plant-list" id="plantList" role="listbox" aria-label="Pflanzen auswählen">
+        <!-- Einträge werden von app.js gefüllt -->
+      </nav>
+      <div class="sidebar-foot">
+        <button id="addPlantBtn" class="btn primary" style="width:100%">➕ Neue Pflanze</button>
+      </div>
+    </aside>
+    <div id="sidebarOverlay" class="sidebar-overlay" hidden></div>
 
     <main class="container stack">
 
@@ -190,7 +206,7 @@
   <script>
     // ============= PIN-Einstellungen =================
     // PIN = "water" (SHA-256):
-    const USE_HASH = false;
+    const USE_HASH = true;
     const PIN_PLAINTEXT = "water"; // nur relevant, wenn USE_HASH=false
     const PIN_HASH = "3ad843de61d1d6d13b3ee863d07be4c6569d7b0c3f9cfdfad3a86e0d94369a6a";
 

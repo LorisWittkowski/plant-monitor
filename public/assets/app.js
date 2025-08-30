@@ -28,8 +28,12 @@ const els = {
   pi_note: $("#pi_note"), saveInfo: $("#saveInfo"),
   scaleFixed: $("#scaleFixed"),
 
-  // Neu:
-  sensorSelect: $("#sensorSelect"),
+  // Sidebar + Topbar
+  menuBtn: $("#menuBtn"),
+  sidebar: $("#sidebar"),
+  sidebarClose: $("#sidebarClose"),
+  sidebarOverlay: $("#sidebarOverlay"),
+  plantList: $("#plantList"),
   addPlantBtn: $("#addPlantBtn"),
   newPlantModal: $("#newPlantModal"),
   np_id: $("#np_id"), np_name: $("#np_name"), np_save: $("#np_save"),
@@ -147,7 +151,7 @@ function setSeries(points){
     .filter(p=>Number.isFinite(p.t))
     .sort((a,b)=>a.t-b.t);
 
-  // Lücke bei Kalibrierung (verhindert Spitzen)
+  // Lücke bei Kalibrierung
   if (config?.lastCalibrated || config?.updatedAt){
     const hushBefore = 30*1000, hushAfter = 60*1000;
     const t0 = new Date(config.lastCalibrated || config.updatedAt).getTime();
@@ -253,6 +257,9 @@ async function savePlantProfile(){
   try{
     const r = await fetch("/api/plant",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
     if (!r.ok) throw 0; btn.textContent="Gespeichert ✓"; await fetchPlant();
+    // Name im Sidebar-Listeneintrag live aktualisieren
+    const active = els.plantList?.querySelector('.plant-item[aria-selected="true"] .plant-name');
+    if (active && els.pi_name?.value) active.textContent = els.pi_name.value;
   }catch{ btn.textContent="Fehler ❌"; }
   finally{ setTimeout(()=>{btn.textContent=old; btn.disabled=false;},900); }
 }
@@ -296,49 +303,71 @@ els.resetCalib?.addEventListener("click", async ()=>{
   }
 })();
 
-// ==== Sensors (NEU) ====
+// ==== Sidebar controls (open/close) ====
+function openSidebar(){
+  els.sidebar?.classList.add('open');
+  els.sidebar?.setAttribute('aria-hidden','false');
+  els.sidebarOverlay.hidden = false;
+}
+function closeSidebar(){
+  els.sidebar?.classList.remove('open');
+  els.sidebar?.setAttribute('aria-hidden','true');
+  els.sidebarOverlay.hidden = true;
+}
+els.menuBtn?.addEventListener('click', openSidebar);
+els.sidebarClose?.addEventListener('click', closeSidebar);
+els.sidebarOverlay?.addEventListener('click', closeSidebar);
+
+// ==== Sensors (Liste in der Sidebar) ====
 async function loadSensors(){
   try {
     const r = await fetch("/api/sensors", {cache:"no-store"});
     if (!r.ok) return;
     const data = await r.json();
-    const sel = els.sensorSelect;
-    sel.innerHTML = "";
-
     const sensors = (data.sensors || []);
-    sensors.forEach(s => {
-      const opt = document.createElement("option");
-      opt.value = s.id;
-      opt.textContent = s.name || s.id;
-      sel.appendChild(opt);
+    const list = els.plantList;
+    list.innerHTML = "";
+
+    sensors.forEach(s=>{
+      const item = document.createElement('button');
+      item.className = 'plant-item';
+      item.setAttribute('role','option');
+      item.dataset.id = s.id;
+      item.innerHTML = `
+        <span class="plant-name">${s.name || s.id}</span>
+        <span class="plant-meta">${s.calibrated ? 'kalibriert' : 'unkalibriert'}</span>
+      `;
+      if (s.id === SENSOR_ID) item.setAttribute('aria-selected','true');
+      item.addEventListener('click', ()=>{
+        SENSOR_ID = s.id;
+        localStorage.setItem("sensorId", SENSOR_ID);
+        // Auswahl visuell updaten
+        list.querySelectorAll('.plant-item[aria-selected="true"]').forEach(el=>el.removeAttribute('aria-selected'));
+        item.setAttribute('aria-selected','true');
+        // Daten laden
+        closeSidebar();
+        fetchSeries(currentRange);
+        fetchPlant();
+      });
+      list.appendChild(item);
     });
 
-    const saved = localStorage.getItem("sensorId");
-    if (saved && sensors.some(s => s.id === saved)) {
-      SENSOR_ID = saved;
-      sel.value = saved;
-    } else if (sensors.length) {
+    // Auswahl initialisieren
+    if (!sensors.some(s=>s.id===SENSOR_ID) && sensors.length){
       SENSOR_ID = sensors[0].id;
-      sel.value = SENSOR_ID;
-    } else {
-      // noch keine Sensoren – UI bleibt leer bis neue Pflanze angelegt wird
-      return;
+      localStorage.setItem("sensorId", SENSOR_ID);
     }
-
-    fetchSeries(currentRange);
-    fetchPlant();
+    if (sensors.length){
+      fetchSeries(currentRange);
+      fetchPlant();
+    }
   } catch (e) { console.error(e); }
 }
 
-els.sensorSelect?.addEventListener("change", ()=>{
-  SENSOR_ID = els.sensorSelect.value;
-  localStorage.setItem("sensorId", SENSOR_ID);
-  fetchSeries(currentRange);
-  fetchPlant();
-});
-
 // Neue Pflanze anlegen
-els.addPlantBtn?.addEventListener("click", ()=> els.newPlantModal?.showModal());
+els.addPlantBtn?.addEventListener("click", ()=>{
+  els.newPlantModal?.showModal();
+});
 els.np_save?.addEventListener("click", async ()=>{
   const id = els.np_id?.value?.trim();
   const name = els.np_name?.value?.trim();
@@ -349,7 +378,7 @@ els.np_save?.addEventListener("click", async ()=>{
     els.newPlantModal?.close();
     els.np_id.value = ""; els.np_name.value = "";
     await loadSensors();
-    els.sensorSelect.value = id;
+    // Fokus auf neue Pflanze
     SENSOR_ID = id;
     localStorage.setItem("sensorId", id);
     fetchSeries(currentRange);
@@ -368,8 +397,7 @@ els.saveInfo?.addEventListener("click", savePlantProfile);
   if (savedRange && ["1h","24h","7d"].includes(savedRange)) currentRange = savedRange;
 
   initChart();
-  // Sensoren laden (setzt SENSOR_ID und triggert fetches)
-  loadSensors();
+  loadSensors(); // setzt SENSOR_ID & lädt Daten
 
   if (els.pi_note) bindAutosize(els.pi_note);
   setInterval(pollLatest, POLL_MS);

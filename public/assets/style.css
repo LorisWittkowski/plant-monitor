@@ -1,3 +1,4 @@
+/* file: public/assets/style.css */
 /* =======================
    Plant Monitor – style.css
    Neutrale Grautöne, Mono-Ästhetik, clean UI
@@ -5,27 +6,27 @@
 
 /* === Farb-System (Light / Dark) ====================== */
 :root{
-  --bg:#f5f6f7;            /* sehr helles Grau */
-  --panel:#ffffff;         /* Karten-Hintergrund */
-  --fg:#121416;            /* Primärtext */
-  --fg-strong:#0b0c0d;     /* starke Akzente (Linien, große Prozentzahl) */
-  --muted:#6f757b;         /* Sekundärtext/Labels */
-  --stroke:#e4e6ea;        /* Rahmen/Gitter */
-  --bar:#111214;           /* Füllbalken */
-  --bar-bg:#eceef1;        /* Balken-Hintergrund */
+  --bg:#f5f6f7;
+  --panel:#ffffff;
+  --fg:#121416;
+  --fg-strong:#0b0c0d;
+  --muted:#6f757b;
+  --stroke:#e4e6ea;
+  --bar:#111214;
+  --bar-bg:#eceef1;
   --panel-tint: color-mix(in oklab, var(--panel) 70%, transparent);
   --shadow: 0 12px 40px rgba(0,0,0,.08);
 }
 
 :root[data-theme="dark"]{
-  --bg:#121416;            /* angenehmes Dunkelgrau */
-  --panel:#171a1e;         /* Karten-Hintergrund */
-  --fg:#e7eaee;            /* Text sehr helles Grau */
-  --fg-strong:#ffffff;     /* starke Akzente */
-  --muted:#a3aab1;         /* dezente Labels */
-  --stroke:#242a31;        /* Rahmen/Gitter */
-  --bar:#f2f3f5;           /* Füllbalken hell */
-  --bar-bg:#1e2329;        /* Balken-Hintergrund */
+  --bg:#121416;
+  --panel:#171a1e;
+  --fg:#e7eaee;
+  --fg-strong:#ffffff;
+  --muted:#a3aab1;
+  --stroke:#242a31;
+  --bar:#f2f3f5;
+  --bar-bg:#1e2329;
   --panel-tint: color-mix(in oklab, var(--panel) 70%, transparent);
   --shadow: 0 12px 40px rgba(0,0,0,.35);
 }
@@ -43,16 +44,21 @@ body{
 /* === Layout ========================================== */
 .container{ max-width:1100px; margin:0 auto; padding:16px }
 .stack > *{ margin-bottom:16px }
-.topbar{ display:flex; justify-content:space-between; align-items:center }
 
-/* Brand / Header */
+/* === Sticky Topbar =================================== */
+.topbar{
+  position: sticky; top:0; z-index:60;
+  background:var(--bg);
+  border-bottom:1px solid var(--stroke);
+}
+.topbar-inner{
+  display:flex; justify-content:space-between; align-items:center;
+}
 .brand{
-  font-size:24px;          /* leicht größer */
-  font-weight:600;
-  letter-spacing:-0.01em;
-  margin:0;
+  font-size:24px; font-weight:600; letter-spacing:-0.01em; margin:0;
 }
 .actions{ display:flex; gap:8px }
+.btn.icon-left{ display:inline-flex; align-items:center; gap:8px }
 
 /* === Cards =========================================== */
 .card{
@@ -118,7 +124,7 @@ body{
   font-size:20px;
   line-height:1;
 }
-.btn.tiny{                 /* neuer kleiner Text-Button für Theme */
+.btn.tiny{
   padding:8px 10px;
   font-size:12.5px;
   border-radius:12px;
@@ -246,11 +252,55 @@ body{
 .calib-summary .row1{ display:flex; gap:8px; align-items:center }
 .calib-summary .row2{ color:var(--muted); font-size:12.5px }
 
+/* === Sidebar ========================================= */
+.sidebar{
+  position: fixed; z-index: 70;
+  top: 0; left: 0; bottom: 0;
+  width: 290px;
+  background: var(--panel);
+  border-right: 1px solid var(--stroke);
+  box-shadow: var(--shadow);
+  transform: translateX(-100%);
+  transition: transform .26s cubic-bezier(.2,.7,.2,1);
+  display:flex; flex-direction:column;
+}
+.sidebar.open{ transform: translateX(0) }
+.sidebar-head{
+  display:flex; align-items:center; gap:10px;
+  padding:12px 14px; border-bottom:1px solid var(--stroke)
+}
+.sidebar-foot{
+  margin-top:auto; padding:12px 14px; border-top:1px solid var(--stroke);
+}
+.sidebar-overlay{
+  position: fixed; inset:0; z-index:65; background:rgba(0,0,0,.25);
+}
+.plant-list{
+  padding:8px; display:flex; flex-direction:column; gap:6px; overflow:auto;
+}
+.plant-item{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:8px;
+  border:1px solid var(--stroke);
+  background:var(--panel);
+  border-radius:12px;
+  padding:10px 12px;
+  cursor:pointer;
+}
+.plant-item[aria-selected="true"]{
+  background:var(--fg);
+  color:var(--panel);
+  border-color:var(--fg);
+}
+.plant-meta{
+  color:var(--muted); font-size:12px;
+}
+
 /* === Responsive ====================================== */
 @media (max-width: 640px){
   .card-head{ flex-direction:column; align-items:flex-start; gap:10px }
   .head-tools{ width:100%; gap:8px; flex-wrap:wrap }
   .range{ flex:1 }
   .btn.seg{ flex:1; text-align:center }
-  .grid2{ grid-template-columns:1fr }  /* Inputs stapeln */
+  .grid2{ grid-template-columns:1fr }
 }
