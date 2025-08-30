@@ -20,8 +20,8 @@ async function readJson(req) {
   try { return JSON.parse(raw); } catch { return {}; }
 }
 
-function normalizeId(s){ return (s||"").toString().trim().toLowerCase(); }
-function isValidId(s){ return /^[a-z0-9][a-z0-9_-]{1,62}$/.test(s); }
+function normalizeId(s){ return (s||"").toString().trim(); }
+function isValidId(s){ return /^[a-zA-Z0-9][a-zA-Z0-9_-]{1,62}$/.test(s); }
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin","*");
@@ -35,7 +35,7 @@ export default async function handler(req, res) {
   sensorId = normalizeId(sensorId);
 
   if (!sensorId) return res.status(400).json({ error:"sensorId_required" });
-  if (!isValidId(sensorId)) return res.status(400).json({ error:"sensorId_invalid", hint:"erlaubt: a-z 0-9 _ -" });
+  if (!isValidId(sensorId)) return res.status(400).json({ error:"sensorId_invalid", hint:"erlaubt: a–Z 0–9 _ -" });
 
   const r = await redis();
   const existed = await r.sIsMember("soil:sensors", sensorId);

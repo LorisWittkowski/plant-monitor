@@ -1,13 +1,6 @@
-//
-//  delete-plant.js
-//  
-//
-//  Created by Loris Schulz on 30.08.25.
-//
 // file: api/delete-plant.js
 import { createClient } from "redis";
 
-// ---- Redis helper ----
 let redisP;
 function redis() {
   if (!process.env.REDIS_URL) throw new Error("REDIS_URL missing");
@@ -19,7 +12,6 @@ function redis() {
   return redisP;
 }
 
-// robust body-read
 async function readJson(req) {
   if (req.body && typeof req.body === "object") return req.body;
   const chunks=[]; for await (const ch of req) chunks.push(ch);
@@ -28,7 +20,6 @@ async function readJson(req) {
   try { return JSON.parse(raw); } catch { return {}; }
 }
 
-// optional: einfacher Schutz via ADMIN_TOKEN (setze ENV, wenn du willst)
 function checkAdmin(req) {
   const need = process.env.ADMIN_TOKEN;
   if (!need) return true;
@@ -42,17 +33,15 @@ export default async function handler(req, res){
   res.setHeader("Access-Control-Allow-Headers","Content-Type, X-Admin-Token, X-Admin");
   if (req.method==="OPTIONS") return res.status(204).end();
   if (req.method!=="POST") { res.setHeader("Allow",["POST"]); return res.status(405).end("Method Not Allowed"); }
-
   if (!checkAdmin(req)) return res.status(401).json({ error:"unauthorized" });
 
   const { sensorId } = await readJson(req);
-  const id = (sensorId || "").toString().trim().toLowerCase();
+  const id = (sensorId || "").toString().trim();
   if (!id) return res.status(400).json({ error:"sensorId_required" });
 
   const r = await redis();
 
-  // bekannte Schlüssel dieses Sensors
-  const keys = [
+  const fixed = [
     `soil:${id}:latest`,
     `soil:${id}:history`,
     `soil:${id}:config`,
@@ -64,21 +53,17 @@ export default async function handler(req, res){
     `soil:${id}:notes`,
   ];
 
-  // Zusätzlich: falls du später weitere Namen nutzt, SCAN per Pattern:
-  // (defensiv, aber leichtgewichtiger, da auf einen Prefix beschränkt)
   const extra = [];
   let cursor = "0";
   const pattern = `soil:${id}:*`;
   do {
     const [next, batch] = await r.scan(cursor, { MATCH: pattern, COUNT: 200 });
     cursor = next;
-    for (const k of batch) if (!keys.includes(k)) extra.push(k);
+    for (const k of batch) if (!fixed.includes(k)) extra.push(k);
   } while (cursor !== "0");
 
-  const toDelete = [...new Set([...keys, ...extra])];
+  const toDelete = [...new Set([...fixed, ...extra])];
   if (toDelete.length) await r.del(toDelete);
-
-  // aus der Sensorliste entfernen
   await r.sRem("soil:sensors", id);
 
   return res.json({ ok:true, deletedKeys: toDelete.length });

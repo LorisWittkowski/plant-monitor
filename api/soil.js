@@ -1,4 +1,4 @@
-// file: api/soil.js  (nur der POST-Teil enthält 1 zusätzliche Zeile r.sAdd)
+// file: api/soil.js
 import { createClient } from "redis";
 
 let redisP;
@@ -151,7 +151,7 @@ export default async function handler(req, res) {
       r.set(`soil:${id}:latest`, JSON.stringify(payload)),
       r.lPush(`soil:${id}:history`, JSON.stringify(payload)),
       r.lTrim(`soil:${id}:history`, 0, 4000),
-      r.sAdd('soil:sensors', id) // <— NEU: registrieren
+      r.sAdd('soil:sensors', id) // registrieren
     ]);
 
     // 10-Min Aggregation

@@ -77,7 +77,8 @@ const cssVar = (name, fallback) => getComputedStyle(document.documentElement).ge
 const asPercent = raw => {
   if (!config || config.rawDry==null || config.rawWet==null || config.rawDry===config.rawWet)
     return clamp((raw/RAW_MAX)*100,0,100);
-  return clamp(100*(raw - config.rawDry)/(config.rawWet - config.rawWet),0,100);
+  // FIX: korrektes Delta (vorher: rawWet - rawWet → 0)
+  return clamp(100*(raw - config.rawDry)/(config.rawWet - config.rawDry),0,100);
 };
 function autosize(el){ if (!el) return; el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }
 function bindAutosize(el){
@@ -419,7 +420,11 @@ async function deleteCurrentPlant(){
       headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({ sensorId: SENSOR_ID })
     });
-    if (!r.ok) throw new Error("Serverfehler");
+    if (!r.ok) {
+      const txt = await r.text().catch(()=> "");
+      console.error("Delete failed", r.status, txt);
+      throw new Error(`Delete ${r.status}`);
+    }
     els.infoModal?.close();
     await loadSensors();
     const first = els.plantList?.querySelector('.plant-item');
