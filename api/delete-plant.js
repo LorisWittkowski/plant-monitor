@@ -20,12 +20,29 @@ async function readJson(req) {
   try { return JSON.parse(raw); } catch { return {}; }
 }
 
-// Hilfsfunktion: große Arrays in kleineren Blöcken löschen
-async function delChunks(client, keys, size=256){
-  for (let i=0; i<keys.length; i+=size){
-    const slice = keys.slice(i, i+size);
-    if (slice.length) await client.del(slice);
+// Löscht Keys in Blöcken und benutzt bevorzugt UNLINK (non-blocking)
+async function deleteKeysChunked(r, keys, chunk=256) {
+  if (!keys || !keys.length) return 0;
+  let deleted = 0;
+  const hasUnlink = typeof r.unlink === "function";
+  for (let i=0; i<keys.length; i+=chunk) {
+    const slice = keys.slice(i, i+chunk);
+    if (!slice.length) continue;
+    try {
+      if (hasUnlink) {
+        // WICHTIG: spread (...) – NICHT als Array!
+        deleted += await r.unlink(...slice);
+      } else {
+        deleted += await r.del(...slice);
+      }
+    } catch (e) {
+      // Fallback: einzeln löschen, damit ein kaputter Key den Rest nicht blockiert
+      for (const k of slice) {
+        try { deleted += hasUnlink ? await r.unlink(k) : await r.del(k); } catch {}
+      }
+    }
   }
+  return deleted;
 }
 
 export default async function handler(req, res){
@@ -35,15 +52,26 @@ export default async function handler(req, res){
   if (req.method==="OPTIONS") return res.status(204).end();
   if (req.method!=="POST") { res.setHeader("Allow",["POST"]); return res.status(405).end("Method Not Allowed"); }
 
-  try{
+  try {
     const { sensorId } = await readJson(req);
     const id = (sensorId || "").toString().trim();
     if (!id) return res.status(400).json({ error:"sensorId_required" });
 
     const r = await redis();
 
-    // bekannte Schlüssel
-    const fixed = [
+    // 1) Alle Schlüssel mit Prefix einsammeln
+    const keys = new Set();
+    let cursor = "0";
+    const pattern = `soil:${id}:*`;
+    do {
+      // node-redis v4 liefert { cursor, keys }
+      const { cursor: next, keys: batch } = await r.scan(cursor, { MATCH: pattern, COUNT: 500 });
+      cursor = next;
+      for (const k of batch) keys.add(k);
+    } while (cursor !== "0");
+
+    // 2) Auch bekannte Namen vorsichtshalber hinzufügen
+    [
       `soil:${id}:latest`,
       `soil:${id}:history`,
       `soil:${id}:config`,
@@ -53,28 +81,24 @@ export default async function handler(req, res){
       `soil:${id}:agg10m:cnt`,
       `soil:${id}:plant:profile`,
       `soil:${id}:notes`,
-    ];
+    ].forEach(k => keys.add(k));
 
-    // alle Keys mit Prefix via SCAN einsammeln (node-redis v4: {cursor, keys})
-    const extra = [];
-    let cursor = "0";
-    const pattern = `soil:${id}:*`;
-    do {
-      const { cursor: next, keys } = await r.scan(cursor, { MATCH: pattern, COUNT: 200 });
-      cursor = next;
-      for (const k of keys) if (!fixed.includes(k)) extra.push(k);
-    } while (cursor !== "0");
+    const allKeys = Array.from(keys);
 
-    const toDelete = [...new Set([...fixed, ...extra])];
+    // 3) Löschen (chunked, mit UNLINK wenn möglich)
+    const deletedCount = await deleteKeysChunked(r, allKeys, 256);
 
-    // sicher löschen (in Blöcken)
-    await delChunks(r, toDelete, 256);
+    // 4) Sensor aus Set entfernen
     await r.sRem("soil:sensors", id);
 
-    return res.json({ ok:true, deletedKeys: toDelete.length });
+    return res.status(200).json({
+      ok: true,
+      sensorId: id,
+      scannedKeys: allKeys.length,
+      deletedKeys: deletedCount
+    });
   } catch (err) {
     console.error("delete-plant failed:", err);
-    // gib eine lesbare Fehlermeldung zurück, damit du sie im Frontend siehst
-    return res.status(500).send(String(err && err.stack || err));
+    return res.status(500).send(String(err && (err.stack || err.message) || err));
   }
 }
