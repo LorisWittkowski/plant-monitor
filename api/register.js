@@ -1,0 +1,53 @@
+//
+//  registers.js
+//  
+//
+//  Created by Loris Schulz on 30.08.25.
+//
+// file: api/register.js
+import { createClient } from "redis";
+
+let redisP;
+function redis() {
+  if (!process.env.REDIS_URL) throw new Error("REDIS_URL missing");
+  if (!redisP) {
+    const client = createClient({ url: process.env.REDIS_URL });
+    client.on("error", (e) => console.error("Redis error:", e));
+    redisP = client.connect().then(() => client);
+  }
+  return redisP;
+}
+
+async function readJson(req) {
+  if (req.body && typeof req.body === "object") return req.body;
+  const chunks=[]; for await (const ch of req) chunks.push(ch);
+  const raw = Buffer.concat(chunks).toString("utf8").trim();
+  if (!raw) return {};
+  try { return JSON.parse(raw); } catch { return {}; }
+}
+
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin","*");
+  res.setHeader("Access-Control-Allow-Methods","POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers","Content-Type");
+  if (req.method==="OPTIONS") return res.status(204).end();
+  if (req.method!=="POST") { res.setHeader("Allow",["POST"]); return res.status(405).end("Method Not Allowed"); }
+
+  const { sensorId, name } = await readJson(req);
+  if (!sensorId || typeof sensorId !== "string") return res.status(400).json({ error:"sensorId_required" });
+
+  const r = await redis();
+  await r.sAdd("soil:sensors", sensorId);
+
+  if (name && typeof name === "string") {
+    const keyProfile = `soil:${sensorId}:plant:profile`;
+    const prevRaw = await r.get(keyProfile);
+    const current = prevRaw ? JSON.parse(prevRaw) : {};
+    current.name = name.trim();
+    current.createdAt = current.createdAt || new Date().toISOString();
+    current.updatedAt = new Date().toISOString();
+    await r.set(keyProfile, JSON.stringify(current));
+  }
+
+  return res.json({ ok:true });
+}

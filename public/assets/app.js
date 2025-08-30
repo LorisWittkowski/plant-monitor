@@ -1,15 +1,15 @@
-// Config
+// file: public/assets/app.js
+// ==== Config & State ====
 const POLL_MS = 3000;
 const RAW_MAX = 4095;
-const SENSOR_ID = "soil-1";
+let SENSOR_ID = localStorage.getItem("sensorId") || "soil-1";
 const DEFAULT_RANGE = "1h";
 
-// State
 let latest = null, config = null, lastSeenAt = null, currentDisplayedPercent = null;
 let currentRange = DEFAULT_RANGE, plantProfile = null;
-let fixedScale = false; // 0–100 fest
+let fixedScale = false;
 
-// DOM
+// ==== DOM ====
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const els = {
@@ -27,9 +27,15 @@ const els = {
   pi_location: $("#pi_location"), pi_pot: $("#pi_pot"),
   pi_note: $("#pi_note"), saveInfo: $("#saveInfo"),
   scaleFixed: $("#scaleFixed"),
+
+  // Neu:
+  sensorSelect: $("#sensorSelect"),
+  addPlantBtn: $("#addPlantBtn"),
+  newPlantModal: $("#newPlantModal"),
+  np_id: $("#np_id"), np_name: $("#np_name"), np_save: $("#np_save"),
 };
 
-// Theme – init & toggle (Button zeigt Zielmodus)
+// ==== Theme ====
 (function initTheme(){
   const saved = localStorage.getItem("theme");
   const prefers = matchMedia("(prefers-color-scheme: dark)").matches;
@@ -50,7 +56,7 @@ els.themeToggle?.addEventListener("click", ()=>{
   if (chart) chart.update();
 });
 
-// Helpers
+// ==== Helpers ====
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 const cssVar = (name, fallback) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 const asPercent = raw => {
@@ -58,8 +64,6 @@ const asPercent = raw => {
     return clamp((raw/RAW_MAX)*100,0,100);
   return clamp(100*(raw - config.rawDry)/(config.rawWet - config.rawDry),0,100);
 };
-
-// Textarea autosize
 function autosize(el){ if (!el) return; el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }
 function bindAutosize(el){
   if (!el || el._autosizeBound) return;
@@ -69,7 +73,7 @@ function bindAutosize(el){
   el._autosizeBound = true; autosize(el);
 }
 
-// Live UI
+// ==== Live UI ====
 function updateLive(raw, atIso){
   const p = asPercent(raw);
   els.fill.style.width = p.toFixed(1) + "%";
@@ -81,13 +85,14 @@ function updateLive(raw, atIso){
   els.ts.textContent = new Date(atIso).toLocaleString();
 }
 
-// Calibration summary
+// ==== Calibration summary ====
 function renderCalibSummary(){
   if (!els.calibLabel || !els.calibMeta) return;
   if (config && typeof config.rawDry==="number" && typeof config.rawWet==="number"){
     els.calibLabel.textContent = `DRY: ${config.rawDry} · WET: ${config.rawWet}`;
-    els.calibMeta.textContent = config.lastCalibrated
-      ? `Zuletzt aktualisiert: ${new Date(config.lastCalibrated).toLocaleString()}`
+    const stamp = config.lastCalibrated || config.updatedAt;
+    els.calibMeta.textContent = stamp
+      ? `Zuletzt aktualisiert: ${new Date(stamp).toLocaleString()}`
       : `Kalibrierung aktiv.`;
   } else {
     els.calibLabel.textContent = "Keine Kalibrierung gespeichert";
@@ -95,7 +100,7 @@ function renderCalibSummary(){
   }
 }
 
-// Chart
+// ==== Chart ====
 let chart;
 function initChart(){
   const ctx = els.chart.getContext("2d");
@@ -108,7 +113,7 @@ function initChart(){
       fill: false,
       pointRadius: 0,
       borderColor: () => cssVar('--fg-strong', '#222'),
-      clip: 12 // etwas „über“ den Rand zeichnen
+      clip: 12
     }]},
     options: {
       responsive:true, maintainAspectRatio:false,
@@ -142,10 +147,10 @@ function setSeries(points){
     .filter(p=>Number.isFinite(p.t))
     .sort((a,b)=>a.t-b.t);
 
-  // Lücke bei Kalibrierung (verhindert dominierende Spitzen)
-  if (config?.lastCalibrated){
+  // Lücke bei Kalibrierung (verhindert Spitzen)
+  if (config?.lastCalibrated || config?.updatedAt){
     const hushBefore = 30*1000, hushAfter = 60*1000;
-    const t0 = new Date(config.lastCalibrated).getTime();
+    const t0 = new Date(config.lastCalibrated || config.updatedAt).getTime();
     norm = norm.map(p => (p.t >= t0-hushBefore && p.t <= t0+hushAfter) ? {...p,y:null}:p);
   }
 
@@ -161,7 +166,6 @@ function setSeries(points){
   chart.data.labels = data.map(d=>d.t);
   chart.data.datasets[0].data = data.map(d=>d.y);
 
-  // Y-Skala
   const vals = data.map(d=>d.y).filter(v=>typeof v==="number" && isFinite(v));
   if (fixedScale){
     chart.options.scales.y.min = 0;
@@ -170,7 +174,7 @@ function setSeries(points){
     const minV = Math.max(0, Math.min(...vals));
     const maxV = Math.min(100, Math.max(...vals));
     const spread = Math.max(2, maxV-minV);
-    const pad = Math.max(3, spread * 0.12); // 12% Puffer, min 3%
+    const pad = Math.max(3, spread * 0.12);
     chart.options.scales.y.min = Math.max(0, Math.floor((minV - pad) * 10) / 10);
     chart.options.scales.y.max = Math.min(100, Math.ceil((maxV + pad) * 10) / 10);
   } else {
@@ -185,7 +189,7 @@ function setSeries(points){
   chart.update();
 }
 
-// Fetching
+// ==== Fetching ====
 async function fetchSeries(range){
   els.rangeButtons().forEach(b=>{
     const active = b.dataset.range===range;
@@ -216,7 +220,7 @@ async function pollLatest(){
   }catch{}
 }
 
-// Plant info
+// ==== Plant info ====
 function fillInfoUI(){
   const p = plantProfile || {};
   if (els.pi_name) els.pi_name.value = p.name ?? "";
@@ -253,7 +257,7 @@ async function savePlantProfile(){
   finally{ setTimeout(()=>{btn.textContent=old; btn.disabled=false;},900); }
 }
 
-// Calibration flow
+// ==== Calibration flow ====
 function showStep(n){
   $$(".modal .step").forEach(sec => sec.hidden = Number(sec.dataset.step)!==n);
   $$(".steps-dots .dot").forEach(dot => dot.classList.toggle("active", Number(dot.dataset.step)===n));
@@ -278,7 +282,7 @@ els.resetCalib?.addEventListener("click", async ()=>{
   await fetchSeries(currentRange); renderCalibSummary();
 });
 
-// Scale switch
+// ==== Scale switch ====
 (function initScaleSwitch(){
   const saved = localStorage.getItem("fixedScale");
   fixedScale = saved === "1";
@@ -287,13 +291,73 @@ els.resetCalib?.addEventListener("click", async ()=>{
     els.scaleFixed.addEventListener("change", () => {
       fixedScale = !!els.scaleFixed.checked;
       localStorage.setItem("fixedScale", fixedScale ? "1" : "0");
-      // Nur Skala neu anwenden – Daten bestehen lassen
       if (chart) setSeries(chart.data.datasets[0].data.map((y, i) => ({ t: chart.data.labels[i], y })));
     });
   }
 })();
 
-// Events & Init
+// ==== Sensors (NEU) ====
+async function loadSensors(){
+  try {
+    const r = await fetch("/api/sensors", {cache:"no-store"});
+    if (!r.ok) return;
+    const data = await r.json();
+    const sel = els.sensorSelect;
+    sel.innerHTML = "";
+
+    const sensors = (data.sensors || []);
+    sensors.forEach(s => {
+      const opt = document.createElement("option");
+      opt.value = s.id;
+      opt.textContent = s.name || s.id;
+      sel.appendChild(opt);
+    });
+
+    const saved = localStorage.getItem("sensorId");
+    if (saved && sensors.some(s => s.id === saved)) {
+      SENSOR_ID = saved;
+      sel.value = saved;
+    } else if (sensors.length) {
+      SENSOR_ID = sensors[0].id;
+      sel.value = SENSOR_ID;
+    } else {
+      // noch keine Sensoren – UI bleibt leer bis neue Pflanze angelegt wird
+      return;
+    }
+
+    fetchSeries(currentRange);
+    fetchPlant();
+  } catch (e) { console.error(e); }
+}
+
+els.sensorSelect?.addEventListener("change", ()=>{
+  SENSOR_ID = els.sensorSelect.value;
+  localStorage.setItem("sensorId", SENSOR_ID);
+  fetchSeries(currentRange);
+  fetchPlant();
+});
+
+// Neue Pflanze anlegen
+els.addPlantBtn?.addEventListener("click", ()=> els.newPlantModal?.showModal());
+els.np_save?.addEventListener("click", async ()=>{
+  const id = els.np_id?.value?.trim();
+  const name = els.np_name?.value?.trim();
+  if (!id) { alert("Bitte Sensor-ID eingeben!"); return; }
+  try{
+    const r = await fetch("/api/register",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ sensorId:id, name })});
+    if (!r.ok) throw 0;
+    els.newPlantModal?.close();
+    els.np_id.value = ""; els.np_name.value = "";
+    await loadSensors();
+    els.sensorSelect.value = id;
+    SENSOR_ID = id;
+    localStorage.setItem("sensorId", id);
+    fetchSeries(currentRange);
+    fetchPlant();
+  }catch{ alert("Fehler beim Anlegen!"); }
+});
+
+// ==== Events & Init ====
 els.rangeButtons().forEach(b=> b.addEventListener("click", ()=>{
   currentRange = b.dataset.range; localStorage.setItem("range", currentRange); fetchSeries(currentRange);
 }));
@@ -304,8 +368,9 @@ els.saveInfo?.addEventListener("click", savePlantProfile);
   if (savedRange && ["1h","24h","7d"].includes(savedRange)) currentRange = savedRange;
 
   initChart();
-  fetchSeries(currentRange);
-  fetchPlant();
+  // Sensoren laden (setzt SENSOR_ID und triggert fetches)
+  loadSensors();
+
   if (els.pi_note) bindAutosize(els.pi_note);
   setInterval(pollLatest, POLL_MS);
 })();

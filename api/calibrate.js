@@ -1,3 +1,4 @@
+// file: api/calibrate.js
 import { createClient } from "redis";
 
 let redisP;
@@ -34,11 +35,14 @@ export default async function handler(req, res) {
 
   const prev = await r.get(key);
   const old = prev ? JSON.parse(prev) : {};
+  const nowIso = new Date().toISOString();
   const cfg = {
     rawDry: Number.isFinite(rawDry) ? rawDry : (old.rawDry ?? null),
     rawWet: Number.isFinite(rawWet) ? rawWet : (old.rawWet ?? null),
-    updatedAt: new Date().toISOString()
+    updatedAt: nowIso,
+    lastCalibrated: nowIso
   };
   await r.set(key, JSON.stringify(cfg));
+  await r.sAdd("soil:sensors", sensorId);
   return res.status(200).json({ ok:true, config: cfg });
 }

@@ -6,19 +6,16 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Plant Monitor</title>
   <link rel="stylesheet" href="/assets/style.css" />
-  <!-- Wichtig: Chart.js & app.js NICHT im Head laden.
-       Wir laden beide erst NACH erfolgreichem Login per JS nach! -->
+  <!-- Chart.js & app.js werden erst NACH Login geladen -->
 </head>
 <body>
-  <!-- 🔒 Login-Screen -->
+  <!-- 🔒 Login -->
   <div id="lockScreen" class="container" style="padding:40px;max-width:480px">
     <h2 class="brand" style="margin-bottom:12px">🔒 Plant Monitor Login</h2>
-
     <label class="field">
       <span class="label">PIN</span>
       <input id="pinInput" class="input" type="password" inputmode="numeric" placeholder="PIN eingeben" />
     </label>
-
     <div style="display:flex; gap:8px; align-items:center; margin-top:10px">
       <button id="pinBtn" class="btn primary">Login</button>
       <span id="msg" style="color:#d33"></span>
@@ -29,7 +26,12 @@
   <div id="app" hidden>
     <header class="topbar container">
       <h1 class="brand">Plant Monitor</h1>
-      <div class="actions">
+      <div class="actions" style="gap:10px">
+        <!-- ▼ Pflanzen-Auswahl + Neu -->
+        <select id="sensorSelect" class="input" style="min-width:200px"></select>
+        <button id="addPlantBtn" class="btn tiny" title="Neue Pflanze anlegen">➕ Pflanze</button>
+
+        <!-- Tools -->
         <button id="logoutBtn" class="btn tiny" aria-label="Logout">Logout</button>
         <button id="themeToggle" class="btn tiny" aria-label="Theme umschalten">Dark</button>
         <button id="calibBtn" class="btn primary">Kalibrieren</button>
@@ -60,7 +62,7 @@
             <input id="pi_location" class="input" placeholder="z. B. Wohnzimmer" />
           </label>
           <label class="field">
-            <span class="label">Höhe (cm)</span>
+            <span class="label">Topf-Höhe (cm)</span>
             <input id="pi_pot" class="input" inputmode="numeric" placeholder="z. B. 18" />
           </label>
 
@@ -97,7 +99,6 @@
               <button class="btn seg" data-range="7d"  role="tab" aria-selected="false">7 Tage</button>
             </div>
 
-            <!-- Skalen-Schalter -->
             <label class="switch" title="Fixe Skala 0–100%">
               <input id="scaleFixed" type="checkbox" />
               <span class="track" aria-hidden="true"></span>
@@ -160,21 +161,39 @@
         </footer>
       </div>
     </dialog>
+
+    <!-- Neue Pflanze -->
+    <dialog id="newPlantModal" class="modal">
+      <div class="modal-card">
+        <header class="modal-head">
+          <h4>Neue Pflanze anlegen</h4>
+          <button class="btn icon close" onclick="this.closest('dialog').close();">✕</button>
+        </header>
+        <div class="modal-body">
+          <label class="field">
+            <span class="label">Sensor-ID</span>
+            <input id="np_id" class="input" placeholder="z. B. soil-2" />
+          </label>
+          <label class="field">
+            <span class="label">Pflanzenname</span>
+            <input id="np_name" class="input" placeholder="z. B. Balkon Tomate" />
+          </label>
+        </div>
+        <footer class="modal-foot">
+          <button id="np_save" class="btn primary">Speichern</button>
+        </footer>
+      </div>
+    </dialog>
   </div>
 
   <!-- 🔧 Login-/Unlock-Logik + Lazy-Loading -->
   <script>
     // ============= PIN-Einstellungen =================
-    // Standard-PIN ist 1234. Ändern:
-    // 1) Neuen Hash erzeugen (siehe Kommentar weiter unten)
-    // 2) PIN_HASH hier ersetzen
+    // PIN = "water" (SHA-256):
     const USE_HASH = false;
-    const PIN_PLAINTEXT = "water";
-    // Eigenen Hash erzeugen (Browser-Konsole):
-    // (async s=>{const h=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-    // console.log(Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join(''))})('DEINE_PIN');
+    const PIN_PLAINTEXT = "water"; // nur relevant, wenn USE_HASH=false
+    const PIN_HASH = "3ad843de61d1d6d13b3ee863d07be4c6569d7b0c3f9cfdfad3a86e0d94369a6a";
 
-    // ============= Helpers ============================
     function setVisible(el, on){ if (el) el.hidden = !on; }
     function loadScript(src){
       return new Promise((resolve, reject)=>{
@@ -193,7 +212,6 @@
       localStorage.setItem("plantLoggedIn","1");
       setVisible(document.getElementById("lockScreen"), false);
       setVisible(document.getElementById("app"), true);
-      // Erst jetzt libs & app laden ⇒ DAVOR keine API-Requests
       await loadScript("https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js");
       await loadScript("/assets/app.js");
     }
@@ -212,16 +230,13 @@
       location.reload();
     }
 
-    // ============= Init ===============================
     window.addEventListener("DOMContentLoaded", ()=>{
       const logged = localStorage.getItem("plantLoggedIn") === "1";
-      if (logged) unlock(); // Auto-Login, wenn Flag gesetzt
+      if (logged) unlock();
 
-      // Login Events
       document.getElementById("pinBtn")?.addEventListener("click", checkPin);
       document.getElementById("pinInput")?.addEventListener("keydown", e=>{ if (e.key === "Enter") checkPin(); });
 
-      // Logout in der App
       document.getElementById("logoutBtn")?.addEventListener("click", logout);
     });
   </script>

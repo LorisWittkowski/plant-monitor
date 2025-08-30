@@ -1,3 +1,4 @@
+// file: api/soil.js
 import { createClient } from "redis";
 
 let redisP;
@@ -19,7 +20,6 @@ async function readJson(req) {
   try { return JSON.parse(raw); } catch { return {}; }
 }
 
-// ---- helpers ----
 const RAW_MAX = 4095;
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 function toPercentWithFallback(raw, cfg) {
@@ -27,10 +27,9 @@ function toPercentWithFallback(raw, cfg) {
   if (cfg && typeof cfg.rawDry === "number" && typeof cfg.rawWet === "number" && cfg.rawDry !== cfg.rawWet) {
     return clamp(100 * (raw - cfg.rawDry) / (cfg.rawWet - cfg.rawDry), 0, 100);
   }
-  return clamp(100 * (raw / RAW_MAX), 0, 100); // Fallback ohne Kalibrierung
+  return clamp(100 * (raw / RAW_MAX), 0, 100);
 }
 
-// Aggregation zu Fenstern → [{at, rawAvg, percent}]
 function bucketize(entries, windowMs, cfg) {
   if (!entries || !entries.length) return [];
   const buckets = new Map();
@@ -55,7 +54,6 @@ function bucketize(entries, windowMs, cfg) {
   return out;
 }
 
-// Lücken zwischen from..to in festen Schritten mit y:null ausfüllen
 function fillMissing(series, fromMs, toMs, windowMs) {
   if (!windowMs || fromMs >= toMs) return series || [];
   const byBucket = new Map();
@@ -69,11 +67,8 @@ function fillMissing(series, fromMs, toMs, windowMs) {
   const full = [];
   for (let k = start; k <= end; k += windowMs) {
     const hit = byBucket.get(k);
-    if (hit) {
-      full.push(hit);
-    } else {
-      full.push({ at: new Date(k + windowMs/2).toISOString(), rawAvg: null, percent: null });
-    }
+    if (hit) full.push(hit);
+    else full.push({ at: new Date(k + windowMs/2).toISOString(), rawAvg: null, percent: null });
   }
   return full;
 }
@@ -87,19 +82,13 @@ export default async function handler(req, res) {
   const sensorId = (req.query.sensorId || "soil-1").toString();
   const r = await redis();
 
-  const keyLatest    = `soil:${sensorId}:latest`;
-  const keyHistory   = `soil:${sensorId}:history`;
-  const keyConfig    = `soil:${sensorId}:config`;
-
-  const keyCurWin    = `soil:${sensorId}:agg10m:curWindow`;
-  const keyCurSum    = `soil:${sensorId}:agg10m:sum`;
-  const keyCurCnt    = `soil:${sensorId}:agg10m:cnt`;
-  const keyAgg10m    = `soil:${sensorId}:agg10m`;
-
   if (req.method === "GET") {
-    const range = (req.query.range || "latest").toString(); // latest | 1h | 24h | 7d
+    const range = (req.query.range || "latest").toString();
 
-    const [cfgRaw, latestRaw] = await Promise.all([ r.get(keyConfig), r.get(keyLatest) ]);
+    const [cfgRaw, latestRaw] = await Promise.all([
+      r.get(`soil:${sensorId}:config`),
+      r.get(`soil:${sensorId}:latest`)
+    ]);
     const config = cfgRaw ? JSON.parse(cfgRaw) : null;
     const latest = latestRaw ? JSON.parse(latestRaw) : null;
 
@@ -116,26 +105,23 @@ export default async function handler(req, res) {
     let from = 0;
 
     if (range === "1h") {
-      const list = await r.lRange(keyHistory, 0, 4000);
+      const list = await r.lRange(`soil:${sensorId}:history`, 0, 4000);
       from = now - 60*60*1000;
       entries = (list || []).map(s => JSON.parse(s)).filter(p => new Date(p.at).getTime() >= from).reverse();
-      windowMs = 60 * 1000; // 1 Minute
+      windowMs = 60 * 1000;
     } else if (range === "24h") {
-      const list = await r.lRange(keyAgg10m, 0, 5000);
+      const list = await r.lRange(`soil:${sensorId}:agg10m`, 0, 5000);
       from = now - 24*60*60*1000;
       entries = (list || []).map(s => JSON.parse(s)).filter(p => new Date(p.at).getTime() >= from).reverse();
-      windowMs = 30 * 60 * 1000; // 30 Minuten (3×10)
+      windowMs = 30 * 60 * 1000;
     } else { // 7d
-      const list = await r.lRange(keyAgg10m, 0, 5000);
-      from = now - 7*24*60*1000*24; // same as 7*24*60*60*1000
+      const list = await r.lRange(`soil:${sensorId}:agg10m`, 0, 5000);
       from = now - 7*24*60*60*1000;
       entries = (list || []).map(s => JSON.parse(s)).filter(p => new Date(p.at).getTime() >= from).reverse();
-      windowMs = 2 * 60 * 60 * 1000; // 2 Stunden (12×10)
+      windowMs = 2 * 60 * 60 * 1000;
     }
 
-    // 1) aggregieren
     const seriesAgg = bucketize(entries, windowMs, config);
-    // 2) Lücken füllen (bis "now")
     const seriesFull = fillMissing(seriesAgg, from, now, windowMs);
 
     if (!latest && seriesFull.every(p => p.percent == null)) return res.status(204).end();
@@ -167,7 +153,8 @@ export default async function handler(req, res) {
     await Promise.all([
       r.set(`soil:${id}:latest`, JSON.stringify(payload)),
       r.lPush(`soil:${id}:history`, JSON.stringify(payload)),
-      r.lTrim(`soil:${id}:history`, 0, 4000)
+      r.lTrim(`soil:${id}:history`, 0, 4000),
+      r.sAdd('soil:sensors', id) // <— registriere Sensor-ID für die Liste
     ]);
 
     // 10-Min Aggregation

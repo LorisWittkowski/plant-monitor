@@ -1,3 +1,4 @@
+// file: api/plant.js
 import { createClient } from "redis";
 
 let redisP;
@@ -39,14 +40,11 @@ export default async function handler(req,res){
   if (req.method === "POST") {
     const { profile = {} } = await readJson(req);
 
-    // Bestehendes Profil laden
     const prevRaw = await r.get(keyProfile);
     const current = prevRaw ? JSON.parse(prevRaw) : {};
 
-    // Whitelist der Felder
     const allowed = ["name","species","location","potCm","note"];
 
-    // Leere/Null-Werte entfernen ⇒ Feld wird aus dem Storage gelöscht
     for (const field of allowed) {
       const val = profile[field];
       if (val === null || val === "" || typeof val === "undefined") {
@@ -56,15 +54,20 @@ export default async function handler(req,res){
       }
     }
 
-    // Wenn nach dem Update keine Felder übrig sind ⇒ gesamten Key löschen
     const keysLeft = Object.keys(current).filter(k => allowed.includes(k));
     if (keysLeft.length === 0) {
-      await r.del(keyProfile);
+      await Promise.all([
+        r.del(keyProfile),
+        r.sRem("soil:sensors", sensorId) // optional: aus Liste entfernen, wenn komplett leer
+      ]);
       return res.status(200).json({ ok:true, cleared:true });
     }
 
     current.updatedAt = new Date().toISOString();
-    await r.set(keyProfile, JSON.stringify(current));
+    await Promise.all([
+      r.set(keyProfile, JSON.stringify(current)),
+      r.sAdd("soil:sensors", sensorId) // sicherstellen, dass es gelistet wird
+    ]);
     return res.status(200).json({ ok:true });
   }
 
