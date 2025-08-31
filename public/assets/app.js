@@ -8,24 +8,27 @@ let latest = null, config = null, lastSeenAt = null, currentDisplayedPercent = n
 let currentRange = DEFAULT_RANGE, plantProfile = null;
 let fixedScale = false;
 
-// ==== DOM ====
+// ==== Tiny DOM helpers (always fresh) ====
 const $  = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
+
+// cached-but-noncritical (may be null; we re-query when needed)
 const els = {
   value: $("#value"), raw: $("#raw"), ts: $("#ts"), fill: $("#fill"),
   chart: $("#chart"),
   rangeButtons: () => $$(".range .btn.seg"),
   themeToggle: $("#themeToggle"),
-  calibBtn: $("#calibBtn"), modal: $("#calibModal"),
-  dryInput: $("#dryInput"), wetInput: $("#wetInput"),
-  useDryNow: $("#useDryNow"), useWetNow: $("#useWetNow"),
-  readNow: $("#readNow"), liveRaw: $("#liveRaw"), livePct: $("#livePct"),
-  saveCalib: $("#saveCalib"), resetCalib: $("#resetCalib"),
-  calibLabel: $("#calibLabel"), calibMeta: $("#calibMeta"), calibPlantName: $("#calibPlantName"),
+
+  // plant fields
   pi_name: $("#pi_name"), pi_species: $("#pi_species"),
   pi_location: $("#pi_location"), pi_pot: $("#pi_pot"),
   pi_note: $("#pi_note"), saveInfo: $("#saveInfo"),
-  scaleFixed: $("#scaleFixed"),
+
+  // calibration quick refs (will be re-queried too)
+  calibLabel: $("#calibLabel"), calibMeta: $("#calibMeta"), calibPlantName: $("#calibPlantName"),
+  dryInput: $("#dryInput"), wetInput: $("#wetInput"),
+  liveRaw: $("#liveRaw"), livePct: $("#livePct"),
+  saveCalib: $("#saveCalib"), resetCalib: $("#resetCalib"),
 
   // Sidebar + Topbar
   menuBtn: $("#menuBtn"),
@@ -55,6 +58,8 @@ const els = {
   wipeRange: $("#wipeRange"),
   wipeLabel: $("#wipeLabel"),
   wipeConfirm: $("#wipeConfirm"),
+
+  scaleFixed: $("#scaleFixed"),
 };
 
 const ALLOWED_PINS = ["A0","A1","A2","A3","A4","A5"];
@@ -106,10 +111,10 @@ function bindAutosize(el){
   el._autosizeBound = true; autosize(el);
 }
 function resetLiveUI(){
-  els.fill.style.width = "0%";
-  els.value.textContent = "—%";
-  els.raw.textContent = "—";
-  els.ts.textContent = "—";
+  els.fill?.style && (els.fill.style.width = "0%");
+  els.value && (els.value.textContent = "—%");
+  els.raw && (els.raw.textContent = "—");
+  els.ts && (els.ts.textContent = "—");
   currentDisplayedPercent = null;
 }
 const sleep = (ms)=>new Promise(r=>setTimeout(r, ms));
@@ -118,32 +123,36 @@ const sleep = (ms)=>new Promise(r=>setTimeout(r, ms));
 function updateLive(raw, atIso){
   const p = asPercent(raw);
   const safeP = Number.isFinite(p) ? p : 0;
-  els.fill.style.width = safeP.toFixed(1) + "%";
+  if (els.fill?.style) els.fill.style.width = safeP.toFixed(1) + "%";
   const show = Math.round(safeP);
-  if (currentDisplayedPercent==null || Math.abs(currentDisplayedPercent - safeP) >= 1)
+  if (els.value && (currentDisplayedPercent==null || Math.abs(currentDisplayedPercent - safeP) >= 1))
     els.value.textContent = show + "%";
   currentDisplayedPercent = safeP;
-  els.raw.textContent = raw;
-  els.ts.textContent = new Date(atIso).toLocaleString();
+  if (els.raw) els.raw.textContent = raw;
+  if (els.ts) els.ts.textContent = new Date(atIso).toLocaleString();
 }
 
 // ==== Calibration summary ====
 function renderCalibSummary(){
-  if (!els.calibLabel || !els.calibMeta) return;
+  const lab = $("#calibLabel");
+  const meta = $("#calibMeta");
+  if (!lab || !meta) return;
+
   if (config && typeof config.rawDry==="number" && typeof config.rawWet==="number"){
-    els.calibLabel.textContent = `DRY: ${config.rawDry} · WET: ${config.rawWet}`;
+    lab.textContent = `DRY: ${config.rawDry} · WET: ${config.rawWet}`;
     const stamp = config.lastCalibrated || config.updatedAt;
-    els.calibMeta.textContent = stamp ? `Zuletzt aktualisiert: ${new Date(stamp).toLocaleString()}` : `Kalibrierung aktiv.`;
+    meta.textContent = stamp ? `Zuletzt aktualisiert: ${new Date(stamp).toLocaleString()}` : `Kalibrierung aktiv.`;
   } else {
-    els.calibLabel.textContent = "Keine Kalibrierung gespeichert";
-    els.calibMeta.textContent = "Fallback: Prozent aus RAW (0..4095).";
+    lab.textContent = "Keine Kalibrierung gespeichert";
+    meta.textContent = "Fallback: Prozent aus RAW (0..4095).";
   }
 }
 
 // ==== Chart ====
 let chart;
 function initChart(){
-  const ctx = els.chart.getContext("2d");
+  const ctx = els.chart?.getContext && els.chart.getContext("2d");
+  if (!ctx) return;
   chart = new Chart(ctx, {
     type: "line",
     data: { labels: [], datasets: [{
@@ -167,6 +176,7 @@ function initChart(){
 }
 
 function setSeries(points){
+  if (!chart) return;
   let norm = (points||[])
     .map(p=>{
       const t = new Date(p.at || p.time || Date.now()).getTime();
@@ -290,120 +300,98 @@ async function savePlantProfile(){
 }
 
 // ==== Calibration UI ====
+// preview helper
 function setCalibPreviewFromInputs(){
-  const rawStr = els.liveRaw?.textContent;
+  const rawStr = $("#liveRaw")?.textContent;
   const raw = Number(rawStr?.replace(/[^\d.]/g,''));
-  const dry = Number(els.dryInput?.value);
-  const wet = Number(els.wetInput?.value);
+  const dry = Number($("#dryInput")?.value);
+  const wet = Number($("#wetInput")?.value);
+  const livePct = $("#livePct");
   if (!Number.isFinite(raw) || !Number.isFinite(dry) || !Number.isFinite(wet) || dry===wet){
-    if (els.livePct) els.livePct.textContent = "—%";
+    if (livePct) livePct.textContent = "—%";
     return;
   }
   const p = clamp(100*(raw - dry)/(wet - dry), 0, 100);
-  els.livePct.textContent = Math.round(p)+"%";
+  if (livePct) livePct.textContent = Math.round(p)+"%";
 }
 async function readCurrentRaw(){
+  const liveRawEl = $("#liveRaw");
   try{
     const r = await fetch(`/api/soil?sensorId=${encodeURIComponent(SENSOR_ID)}&range=latest`, {cache:"no-store"});
-    if (!r.ok){ els.liveRaw.textContent = "—"; return; }
+    if (!r.ok){ if (liveRawEl) liveRawEl.textContent = "—"; return; }
     const data = await r.json();
     if (data?.latest?.raw != null){
-      els.liveRaw.textContent = String(data.latest.raw);
+      if (liveRawEl) liveRawEl.textContent = String(data.latest.raw);
       setCalibPreviewFromInputs();
     } else {
-      els.liveRaw.textContent = "—";
+      if (liveRawEl) liveRawEl.textContent = "—";
     }
-  }catch{ els.liveRaw.textContent = "—"; }
+  }catch{ if (liveRawEl) liveRawEl.textContent = "—"; }
 }
-function safeShowModal(dlg){
-  if (!dlg) return;
-  try { dlg.showModal(); }
-  catch(e){ if (!dlg.open) dlg.setAttribute('open',''); }
-}
-function closeSidebar(){ els.sidebar?.classList.remove('open'); els.sidebar?.setAttribute('aria-hidden','true'); els.sidebarOverlay.hidden = true; }
 
+// robust modal opener
 function openCalibModal(){
-  closeSidebar();
-  const dlg = $("#calibModal");
-  if (!dlg) return; // falls entfernt
-  const name = (plantProfile?.name && String(plantProfile.name).trim()) ? plantProfile.name : (SENSOR_ID || "—");
-  const lbl = $("#calibPlantName"); if (lbl) lbl.textContent = name;
-  renderCalibSummary();
-  if (els.dryInput) els.dryInput.value = (config?.rawDry ?? "");
-  if (els.wetInput) els.wetInput.value = (config?.rawWet ?? "");
-  if (els.liveRaw) els.liveRaw.textContent = "—";
-  if (els.livePct) els.livePct.textContent = "—%";
-  safeShowModal(dlg);
-  readCurrentRaw();
-}
-
-// Klassisches Binding + Delegation + globaler Fallback
-// ==== Robust dialog open helpers (replace your old listeners with this) ====
-
-// Safer modal opener (works even if showModal() throws)
-function safeOpenDialog(dlg){
-  if (!dlg) return false;
-  try { dlg.showModal(); return true; }
-  catch { dlg.setAttribute("open",""); return true; } // non-modal fallback
-}
-
-// Hardened calibrate modal open
-function openCalibModal(){
+  // close sidebar/overlay if open
+  try { closeSidebar(); } catch {}
   const dlg = document.getElementById("calibModal");
   if (!dlg) { alert("Kalibrierungs-Dialog nicht gefunden."); return; }
 
-  // Close sidebar overlay if any
-  closeSidebar?.();
+  const name = (plantProfile?.name && String(plantProfile.name).trim())
+    ? plantProfile.name : (SENSOR_ID || "—");
+  const titleSpan = document.getElementById("calibPlantName");
+  if (titleSpan) titleSpan.textContent = name;
 
-  // UI priming (won't throw if fields missing)
-  if (els.calibPlantName) els.calibPlantName.textContent = plantProfile?.name || SENSOR_ID || "—";
-  renderCalibSummary?.();
-  if (els.dryInput) els.dryInput.value = (config?.rawDry ?? "");
-  if (els.wetInput) els.wetInput.value = (config?.rawWet ?? "");
-  if (els.liveRaw) els.liveRaw.textContent = "—";
-  if (els.livePct) els.livePct.textContent = "—%";
+  renderCalibSummary();
+  const dry = document.getElementById("dryInput");
+  const wet = document.getElementById("wetInput");
+  const liveRaw = document.getElementById("liveRaw");
+  const livePct = document.getElementById("livePct");
+  if (dry) dry.value = (config?.rawDry ?? "");
+  if (wet) wet.value = (config?.rawWet ?? "");
+  if (liveRaw) liveRaw.textContent = "—";
+  if (livePct) livePct.textContent = "—%";
 
-  // Open the dialog + kick first read
-  if (safeOpenDialog(dlg)) { readCurrentRaw?.(); }
+  try { dlg.showModal(); }
+  catch { dlg.setAttribute("open",""); }
+
+  readCurrentRaw();
 }
 
-// Global, resilient click delegation (works even if elements are re-rendered)
-(function bindGlobalClicks(){
-  document.addEventListener("click", (ev)=>{
-    const t = ev.target;
+// input wiring for calibration dialog
+$("#useDryNow")?.addEventListener("click", async ()=>{
+  await readCurrentRaw();
+  const v = Number($("#liveRaw")?.textContent);
+  const dry = $("#dryInput");
+  if (Number.isFinite(v) && dry) dry.value = v;
+  setCalibPreviewFromInputs();
+});
+$("#useWetNow")?.addEventListener("click", async ()=>{
+  await readCurrentRaw();
+  const v = Number($("#liveRaw")?.textContent);
+  const wet = $("#wetInput");
+  if (Number.isFinite(v) && wet) wet.value = v;
+  setCalibPreviewFromInputs();
+});
+$("#readNow")?.addEventListener("click", readCurrentRaw);
+$("#dryInput")?.addEventListener("input", setCalibPreviewFromInputs);
+$("#wetInput")?.addEventListener("input", setCalibPreviewFromInputs);
 
-    // Kalibrieren
-    if (t.closest && t.closest("#calibBtn")) {
-      ev.preventDefault();
-      openCalibModal();
-      return;
-    }
+$("#saveCalib")?.addEventListener("click", async ()=>{
+  const rawDry=Number($("#dryInput")?.value), rawWet=Number($("#wetInput")?.value);
+  if (!Number.isFinite(rawDry) || !Number.isFinite(rawWet)) { alert("Bitte DRY und WET RAW eingeben."); return; }
+  if (rawDry===rawWet) { alert("Trocken und Nass müssen verschieden sein."); return; }
+  const resp = await fetch("/api/calibrate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sensorId:SENSOR_ID,rawDry,rawWet})});
+  if (resp.ok){ $("#calibModal")?.close(); await fetchSeries(currentRange); } else {
+    const t = await resp.text().catch(()=> "");
+    alert("Kalibrierung fehlgeschlagen: "+t);
+  }
+});
+$("#resetCalib")?.addEventListener("click", async ()=>{
+  if (!confirm("Kalibrierung für diese Pflanze zurücksetzen?")) return;
+  await fetch("/api/calibrate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sensorId:SENSOR_ID,reset:true})});
+  await fetchSeries(currentRange); renderCalibSummary(); setCalibPreviewFromInputs();
+});
 
-    // Info öffnen
-    if (t.closest && t.closest("#infoBtn")) {
-      ev.preventDefault();
-      openInfo?.();
-      return;
-    }
-
-    // Historie zurücksetzen (Button inside dialog)
-    if (t.closest && t.closest("#openWipeBtn")) {
-      ev.preventDefault();
-      // This just opens the wipe dialog; the confirm button keeps its own handler
-      const dlg = document.getElementById("wipeModal");
-      if (!dlg) { alert("Wipe-Dialog nicht gefunden."); return; }
-      safeOpenDialog(dlg);
-      return;
-    }
-
-    // Pflanze löschen
-    if (t.closest && t.closest("#deletePlantBtn")) {
-      ev.preventDefault();
-      deleteCurrentPlant?.();
-      return;
-    }
-  }, { passive:true });
-})();
 // ==== Scale switch ====
 (function initScaleSwitch(){
   const saved = localStorage.getItem("fixedScale");
@@ -419,7 +407,8 @@ function openCalibModal(){
 })();
 
 // ==== Sidebar controls ====
-function openSidebar(){ els.sidebar?.classList.add('open'); els.sidebar?.setAttribute('aria-hidden','false'); els.sidebarOverlay.hidden = false; }
+function openSidebar(){ els.sidebar?.classList.add('open'); els.sidebar?.setAttribute('aria-hidden','false'); if ($("#sidebarOverlay")) $("#sidebarOverlay").hidden = false; }
+function closeSidebar(){ els.sidebar?.classList.remove('open'); els.sidebar?.setAttribute('aria-hidden','true'); if ($("#sidebarOverlay")) $("#sidebarOverlay").hidden = true; }
 els.menuBtn?.addEventListener('click', openSidebar);
 els.sidebarClose?.addEventListener('click', closeSidebar);
 els.sidebarOverlay?.addEventListener('click', closeSidebar);
@@ -507,28 +496,29 @@ async function openInfo(){
   try{
     const r = await fetch(`/api/plant-stats?sensorId=${encodeURIComponent(SENSOR_ID)}`, {cache:"no-store"});
     const data = r.ok ? await r.json() : null;
-    els.info_sensorId.textContent = data?.sensorId || SENSOR_ID;
+    if (els.info_sensorId) els.info_sensorId.textContent = data?.sensorId || SENSOR_ID;
     const name = (plantProfile?.name && String(plantProfile.name).trim()) ? plantProfile.name : (data?.profile?.name || SENSOR_ID);
-    els.info_name.textContent = name;
-    els.info_created.textContent = data?.profile?.createdAt ? new Date(data.profile.createdAt).toLocaleString() : "—";
-    els.info_updated.textContent = data?.profile?.updatedAt ? new Date(data.profile.updatedAt).toLocaleString() : "—";
+    if (els.info_name) els.info_name.textContent = name;
+    if (els.info_created) els.info_created.textContent = data?.profile?.createdAt ? new Date(data.profile.createdAt).toLocaleString() : "—";
+    if (els.info_updated) els.info_updated.textContent = data?.profile?.updatedAt ? new Date(data.profile.updatedAt).toLocaleString() : "—";
     const c = data?.counts || {};
-    els.info_counts.textContent = `${c.history ?? 0} / ${c.agg10m ?? 0} / ${c.notes ?? 0}`;
+    if (els.info_counts) els.info_counts.textContent = `${c.history ?? 0} / ${c.agg10m ?? 0} / ${c.notes ?? 0}`;
     const b = data?.bytes || {};
-    els.info_size.textContent = `${b?.total ? Math.round(b.total/1024) : 0} KB (gesamt)`;
+    if (els.info_size) els.info_size.textContent = `${b?.total ? Math.round(b.total/1024) : 0} KB (gesamt)`;
 
     const pin = data?.profile?.pin || plantProfile?.pin || "";
     if (els.info_pin) els.info_pin.value = ALLOWED_PINS.includes(pin) ? pin : "";
   }catch{
-    els.info_sensorId.textContent = SENSOR_ID;
-    els.info_name.textContent = (plantProfile?.name && String(plantProfile.name).trim()) ? plantProfile.name : SENSOR_ID;
-    els.info_created.textContent = "—";
-    els.info_updated.textContent = "—";
-    els.info_counts.textContent = "—";
-    els.info_size.textContent = "—";
+    if (els.info_sensorId) els.info_sensorId.textContent = SENSOR_ID;
+    if (els.info_name) els.info_name.textContent = (plantProfile?.name && String(plantProfile.name).trim()) ? plantProfile.name : SENSOR_ID;
+    if (els.info_created) els.info_created.textContent = "—";
+    if (els.info_updated) els.info_updated.textContent = "—";
+    if (els.info_counts) els.info_counts.textContent = "—";
+    if (els.info_size) els.info_size.textContent = "—";
     if (els.info_pin) els.info_pin.value = plantProfile?.pin || "";
   }
-  safeShowModal(els.infoModal);
+  const dlg = document.getElementById("infoModal");
+  try { dlg?.showModal(); } catch { dlg?.setAttribute("open",""); }
 }
 els.infoBtn?.addEventListener("click", openInfo, { passive:true });
 
@@ -550,13 +540,14 @@ els.info_pin_save?.addEventListener("click", async ()=>{
 // Wipe-Dialog
 function renderWipeLabel(){
   const v = Number(els.wipeRange?.value || 24);
-  els.wipeLabel.textContent = (v === 25) ? "ALLE Daten" : `${v} h`;
+  if (els.wipeLabel) els.wipeLabel.textContent = (v === 25) ? "ALLE Daten" : `${v} h`;
 }
 els.openWipeBtn?.addEventListener("click", ()=>{
   if (!SENSOR_ID) { alert("Keine Pflanze ausgewählt."); return; }
   if (els.wipeRange) els.wipeRange.value = "24";
   renderWipeLabel();
-  safeShowModal(els.wipeModal);
+  const dlg = document.getElementById("wipeModal");
+  try { dlg?.showModal(); } catch { dlg?.setAttribute("open",""); }
 });
 els.wipeRange?.addEventListener("input", renderWipeLabel);
 
@@ -583,7 +574,7 @@ els.wipeConfirm?.addEventListener("click", async ()=>{
       const t = await r.text().catch(()=> "");
       throw new Error(`Serverfehler ${r.status}: ${t}`);
     }
-    els.wipeModal?.close();
+    document.getElementById("wipeModal")?.close();
     await fetchSeries(currentRange);
     await openInfo();
     alert("Historie wurde zurückgesetzt.");
@@ -623,7 +614,7 @@ async function deleteCurrentPlant(){
       throw new Error(`Serverfehler ${r.status}: ${txt}`);
     }
 
-    els.infoModal?.close();
+    document.getElementById("infoModal")?.close();
 
     SENSOR_ID = null;
     localStorage.removeItem("sensorId");
@@ -664,48 +655,17 @@ async function openArduinoGenerator(){
 }
 els.arduinoBtn?.addEventListener("click", openArduinoGenerator);
 
-// ==== Delegation (robust gegen Re-Renders) ====
-document.addEventListener("click", (ev)=>{
-  const t = ev.target.closest("[data-action]");
-  if (!t) return;
-
-  const act = t.getAttribute("data-action");
-
-  if (act === "calibrate"){
-    ev.preventDefault();
-    try { openCalibModal(); } catch(e){}
-    // Fallback direkt:
-    const d = $("#calibModal");
-    if (d) { try{ d.showModal(); }catch(_){ d.setAttribute("open",""); } }
-    return;
-  }
-
-  if (act === "wipe-open"){
-    ev.preventDefault();
-    if (!SENSOR_ID) return;
-    if (els.wipeRange) els.wipeRange.value = "24";
-    renderWipeLabel();
-    safeShowModal(els.wipeModal);
-    return;
-  }
-
-  if (act === "wipe-confirm"){
-    ev.preventDefault();
-    els.wipeConfirm?.click(); // triggert den bereits gebundenen Handler
-    return;
-  }
-
-  if (act === "plant-delete"){
-    ev.preventDefault();
-    deleteCurrentPlant();
-    return;
-  }
-}, { passive:false });
-
-// ==== Globaler Fallback für Inline-Buttons ====
-window.App = Object.assign(window.App || {}, {
-  openCalib: openCalibModal
+// ==== Robust button binding for Calibrate (direct + tiny delegation) ====
+document.getElementById("calibBtn")?.addEventListener("click", (e)=>{
+  e.preventDefault();
+  openCalibModal();
 });
+document.addEventListener("click", (ev)=>{
+  const hit = ev.target?.closest?.("#calibBtn");
+  if (!hit) return;
+  ev.preventDefault();
+  openCalibModal();
+}, { passive:false });
 
 // ==== Range + Save bindings ====
 els.rangeButtons().forEach(b=> b.addEventListener("click", ()=>{
