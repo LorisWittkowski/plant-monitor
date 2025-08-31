@@ -59,11 +59,8 @@ const els = {
   wipeConfirm: $("#wipeConfirm"),
 };
 
-// jetzt:
-const ALLOWED_PINS = [
-  "A0","A1","A2","A3","A4","A5",
-  "A6","A7","A8","A9","A10","A11","A12","A13"
-];
+// UNO R4: A0–A13
+const ALLOWED_PINS = ["A0","A1","A2","A3","A4","A5","A6","A7","A8","A9","A10","A11","A12","A13"];
 
 // ==== Theme ====
 (function initTheme(){
@@ -287,6 +284,7 @@ async function savePlantProfile(){
   try{
     const r = await fetch("/api/plant",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
     if (!r.ok) throw 0; btn.textContent="Gespeichert ✓"; await fetchPlant();
+    // Sidebar-Label live aktualisieren
     const active = els.plantList?.querySelector('.plant-item[aria-selected="true"] .plant-name');
     if (active && els.pi_name?.value) active.textContent = els.pi_name.value;
   }catch{ btn.textContent="Fehler ❌"; }
@@ -395,7 +393,7 @@ async function loadSensors(){
       item.dataset.id = s.id;
       item.innerHTML = `
         <span class="plant-name">${s.name || s.id}</span>
-        <span class="plant-meta">${s.calibrated ? 'kalibriert' : 'unkalibriert'}</span>
+        <span class="plant-meta">${s.calibrated ? 'kalibriert' : 'unkalibriert'}${s.pin ? ' · ' + s.pin : ''}</span>
       `;
       if (s.id === SENSOR_ID) item.setAttribute('aria-selected','true');
       item.addEventListener('click', ()=>{
@@ -437,14 +435,12 @@ els.np_save?.addEventListener("click", async ()=>{
   const name = els.np_name?.value?.trim();
   const pin = els.np_pin?.value?.trim();
   if (!id) { alert("Bitte Sensor-ID eingeben!"); return; }
-  if (!pin || !ALLOWED_PINS.includes(pin)) { alert("Bitte gültigen Analog-Pin wählen (A0–A5)."); return; }
+  if (!pin || !ALLOWED_PINS.includes(pin)) { alert("Bitte gültigen Analog-Pin wählen (A0–A13)."); return; }
 
   try{
-    // 1) Registrierung (falls dein /api/register vorhanden ist)
     const r = await fetch("/api/register",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ sensorId:id, name })});
     if (!r.ok) { const txt = await r.text().catch(()=> ""); alert(`Fehler: ${r.status} ${txt}`); return; }
 
-    // 2) Profil inkl. Pin setzen
     await fetch("/api/plant",{ method:"POST", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({ sensorId:id, profile:{ name: name || null, pin } })
     });
@@ -473,7 +469,6 @@ async function openInfo(){
     const b = data?.bytes || {};
     els.info_size.textContent = `${b?.total ? Math.round(b.total/1024) : 0} KB (gesamt)`;
 
-    // Pin vorselektieren
     const pin = data?.profile?.pin || plantProfile?.pin || "";
     if (els.info_pin) els.info_pin.value = ALLOWED_PINS.includes(pin) ? pin : "";
   }catch{
@@ -493,13 +488,14 @@ els.infoBtn?.addEventListener("click", openInfo, { passive:true });
 els.info_pin_save?.addEventListener("click", async ()=>{
   if (!SENSOR_ID) return;
   const pin = els.info_pin?.value?.trim();
-  if (!pin || !ALLOWED_PINS.includes(pin)) { alert("Bitte gültigen Analog-Pin wählen (A0–A5)."); return; }
+  if (!pin || !ALLOWED_PINS.includes(pin)) { alert("Bitte gültigen Analog-Pin wählen (A0–A13)."); return; }
   try{
     const r = await fetch("/api/plant",{ method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({ sensorId: SENSOR_ID, profile:{ pin } })
     });
     if (!r.ok){ const t = await r.text().catch(()=> ""); throw new Error(`${r.status} ${t}`); }
-    await fetchPlant(); // pakt Profil neu
+    await fetchPlant();            // Profil neu holen
+    await loadSensors();           // Sidebar-Name/Pin frisch ziehen
     alert("Pin gespeichert.");
   }catch(e){ console.error(e); alert("Pin konnte nicht gespeichert werden."); }
 });
@@ -610,9 +606,8 @@ async function deleteCurrentPlant(){
     if (btn){ btn.disabled = false; btn.textContent = oldLabel; }
   }
 }
-els.deletePlantBtn?.addEventListener("click", deleteCurrentPlant);
 
-// === Arduino Generator (lazy load, nur Anzeige/Generierung) ===
+// === Arduino Generator (lazy load) ===
 async function openArduinoGenerator(){
   if (!window.ArduinoGen) {
     await (function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.defer=true; s.onload=res; s.onerror=rej; document.head.appendChild(s); });})("/assets/arduino-gen.js");

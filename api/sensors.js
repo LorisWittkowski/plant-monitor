@@ -22,10 +22,9 @@ export default async function handler(req, res){
   try{
     const r = await redis();
 
-    // Set mit allen bekannten Sensoren
-    const ids = await r.sMembers("soil:sensors"); // [] wenn leer
+    // Alle bekannten Sensoren (Set)
+    const ids = await r.sMembers("soil:sensors");
 
-    // Für jede ID Profil + Kalibrierung einsammeln
     const results = [];
     for (const id of ids){
       const keyProfile = `soil:${id}:plant:profile`;
@@ -38,18 +37,30 @@ export default async function handler(req, res){
 
       let profile = null;
       try { profile = profRaw ? JSON.parse(profRaw) : null; } catch {}
+
       let config = null;
       try { config = cfgRaw ? JSON.parse(cfgRaw) : null; } catch {}
 
-      const name = profile?.name || null;
-      const pin  = profile?.pin || null;
-      const calibrated = Number.isFinite(config?.rawDry) && Number.isFinite(config?.rawWet) && config.rawDry !== config.rawWet;
+      // Fallback: wenn kein Name gesetzt ist, nimm die ID als Anzeige-Name
+      const name = (profile && typeof profile.name === "string" && profile.name.trim() !== "")
+        ? profile.name
+        : id;
+
+      const pin  = (profile && typeof profile.pin === "string" && profile.pin.trim())
+        ? profile.pin
+        : null;
+
+      const calibrated =
+        config &&
+        Number.isFinite(config.rawDry) &&
+        Number.isFinite(config.rawWet) &&
+        config.rawDry !== config.rawWet;
 
       results.push({ id, name, pin, calibrated });
     }
 
-    // konsistente Sortierung: Name (fallback id)
-    results.sort((a,b)=> (a.name || a.id).localeCompare(b.name || b.id, 'de'));
+    // Stabil sortieren: nach Name (Fallback ist bereits gesetzt)
+    results.sort((a,b)=> String(a.name).localeCompare(String(b.name), 'de'));
 
     return res.status(200).json({ sensors: results });
   }catch(e){
