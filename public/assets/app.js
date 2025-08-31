@@ -117,7 +117,7 @@ function resetLiveUI(){
   currentDisplayedPercent = null;
 }
 
-// ---- Dialog helpers (eine Quelle der Wahrheit) ----
+// ---- Dialog helpers ----
 function closeSidebar(){
   els.sidebar?.classList.remove('open');
   els.sidebar?.setAttribute('aria-hidden','true');
@@ -134,13 +134,12 @@ function openDialog(dlg){
   closeAllDialogs();
   try {
     if (typeof dlg.showModal === "function") {
-      dlg.showModal();            // synchron – wichtig für iOS
+      dlg.showModal();     // synchron: wichtig für iOS
     } else {
-      dlg.setAttribute("open",""); // Fallback
+      dlg.setAttribute("open","");
     }
     return true;
-  } catch (e){
-    // letzter Fallback
+  } catch {
     dlg.setAttribute("open","");
     return dlg.hasAttribute("open");
   }
@@ -322,11 +321,8 @@ async function savePlantProfile(){
 }
 
 // ==== Calibration UI ====
-// — synchron & robust öffnen —
+// Öffnen – via Inline onClick, Event-Delegation und klassischem Listener
 function openCalibModal(){
-  const dlg = els.modal;
-  if (!dlg) { console.error("Kalibrierungs-Dialog (#calibModal) nicht gefunden."); return; }
-
   // UI vorbereiten
   els.calibPlantName && (els.calibPlantName.textContent = plantProfile?.name || SENSOR_ID);
   renderCalibSummary();
@@ -334,17 +330,15 @@ function openCalibModal(){
   if (els.wetInput) els.wetInput.value = (config?.rawWet ?? "");
   if (els.liveRaw) els.liveRaw.textContent = "—";
   if (els.livePct) els.livePct.textContent = "—%";
-
-  // sofort im Click öffnen (User-Gesture)
-  const ok = openDialog(dlg);
-  if (ok) {
-    // Live-RAW kurz danach holen
-    setTimeout(readCurrentRaw, 50);
-  }
+  // Dialog öffnen
+  const ok = openDialog(els.modal);
+  if (ok) setTimeout(readCurrentRaw, 50);
 }
+els.calibBtn?.addEventListener("click", (e)=>{ e.preventDefault(); openCalibModal(); });
+// Event-Delegation falls Button in Templates neu gerendert wird
 document.addEventListener("click", (ev)=>{
-  const btn = ev.target.closest("#calibBtn");
-  if (btn){ ev.preventDefault(); openCalibModal(); }
+  const t = ev.target.closest('[data-action="calibrate"],#calibBtn');
+  if (t){ ev.preventDefault(); openCalibModal(); }
 });
 
 function setCalibPreviewFromInputs(){
@@ -660,6 +654,9 @@ els.rangeButtons().forEach(b=> b.addEventListener("click", ()=>{
 els.saveInfo?.addEventListener("click", savePlantProfile);
 
 // ==== Init ====
+// Expose für Inline onClick (Gürtel + Hosenträger)
+window.App = Object.assign(window.App || {}, { openCalib: openCalibModal });
+
 (function init(){
   const savedRange = localStorage.getItem("range");
   if (savedRange && ["1h","24h","7d"].includes(savedRange)) currentRange = savedRange;
