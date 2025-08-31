@@ -277,8 +277,6 @@
       </div>
     </dialog>
 
-    <!-- REPLACE in public/index.html:
-         alles zwischen  <!-- 🛠️ Arduino Code Generator --> ... </dialog>  durch dieses neue Modal -->
     <!-- 🛠️ Arduino Code Generator -->
     <dialog id="arduinoModal" class="modal">
       <div class="modal-card">
@@ -286,30 +284,27 @@
           <h4>Arduino-Code Generator</h4>
           <button class="btn icon close" onclick="this.closest('dialog').close();" aria-label="Schließen">✕</button>
         </header>
-
         <div class="modal-body">
           <p class="muted small" style="margin-top:0">
-            Ordne jeder Pflanze einen <strong>Analog-Pin</strong> zu. Passe unten die
-            <strong>Timing- und Zuverlässigkeits-Parameter</strong> an. Der Code aktualisiert sich live.
+            Ordne jeder Pflanze einen <strong>Analog-Pin</strong> zu. Danach generierst du einen
+            <strong>kopierfertigen</strong> Sketch (Mehr-Sensor-Support, HTTPS-POST).
           </p>
 
-          <!-- Sensor → Pin Mapping -->
           <div id="arduinoList" class="stack" style="margin-top:8px"></div>
 
-          <!-- Netz & Auth -->
           <div class="card subtle" style="padding:12px; margin-top:12px">
             <div class="grid2 gap">
               <label class="field">
                 <span class="label">Wi-Fi SSID</span>
-                <input id="ard_ssid" class="input" placeholder="<WIFI_SSID>" />
+                <input id="ard_ssid" class="input" placeholder="<DEINE_SSID>" />
               </label>
               <label class="field">
                 <span class="label">Wi-Fi Passwort</span>
-                <input id="ard_pass" class="input" placeholder="<WIFI_PASS>" />
+                <input id="ard_pass" class="input" placeholder="<DEIN_PASSWORT>" />
               </label>
               <label class="field">
-                <span class="label">Host (Vercel, ohne https://)</span>
-                <input id="ard_host" class="input" placeholder="plant-monitor-xyz.vercel.app" />
+                <span class="label">Host (Vercel)</span>
+                <input id="ard_host" class="input" placeholder="plant-monitor.example.vercel.app" />
               </label>
               <label class="field">
                 <span class="label">Ingest-Token</span>
@@ -318,74 +313,19 @@
             </div>
           </div>
 
-          <!-- Live-Einstellungen -->
-          <div class="card subtle" style="padding:12px; margin-top:12px">
-            <div class="grid2 gap">
-              <label class="field">
-                <span class="label">Sendeintervall (ms) – je Sensor im Round-Robin</span>
-                <input id="ard_post_ms" class="input" type="range" min="1000" max="60000" step="500" value="5000" />
-                <div class="muted small">Aktuell: <span id="ard_post_ms_lbl" class="mono">5000</span> ms</div>
-              </label>
-
-              <label class="field">
-                <span class="label">Abtastungen pro Messung (odd, 3–15)</span>
-                <input id="ard_samples" class="input" type="range" min="3" max="15" step="1" value="7" />
-                <div class="muted small">Aktuell: <span id="ard_samples_lbl" class="mono">7</span></div>
-              </label>
-
-              <label class="field">
-                <span class="label">Backoff Start (ms)</span>
-                <input id="ard_retry_min" class="input" type="range" min="2000" max="30000" step="500" value="4000" />
-                <div class="muted small">Aktuell: <span id="ard_retry_min_lbl" class="mono">4000</span> ms</div>
-              </label>
-
-              <label class="field">
-                <span class="label">Backoff Max (ms)</span>
-                <input id="ard_retry_max" class="input" type="range" min="5000" max="120000" step="500" value="30000" />
-                <div class="muted small">Aktuell: <span id="ard_retry_max_lbl" class="mono">30000</span> ms</div>
-              </label>
-
-              <label class="field">
-                <span class="label">Connect-Wartezeit (ms)</span>
-                <input id="ard_connect_ms" class="input" type="range" min="2000" max="20000" step="500" value="8000" />
-                <div class="muted small">Aktuell: <span id="ard_connect_ms_lbl" class="mono">8000</span> ms</div>
-              </label>
-
-              <label class="field">
-                <span class="label">DHCP-Wartezeit (ms)</span>
-                <input id="ard_dhcp_ms" class="input" type="range" min="2000" max="20000" step="500" value="8000" />
-                <div class="muted small">Aktuell: <span id="ard_dhcp_ms_lbl" class="mono">8000</span> ms</div>
-              </label>
-
-              <label class="field">
-                <span class="label">HTTP-Status-Lesen (ms)</span>
-                <input id="ard_read_ms" class="input" type="range" min="2000" max="15000" step="500" value="5000" />
-                <div class="muted small">Aktuell: <span id="ard_read_ms_lbl" class="mono">5000</span> ms</div>
-              </label>
-
-              <label class="field">
-                <span class="label">Log-Detail</span>
-                <select id="ard_log_level" class="input">
-                  <option value="1">Kompakt</option>
-                  <option value="2">Normal</option>
-                  <option value="3">Verbose</option>
-                </select>
-              </label>
-            </div>
-          </div>
-
-          <div style="display:flex; gap:8px; margin-top:12px">
-            <button id="arduinoGenBtn" class="btn primary">Generieren</button>
-            <button id="arduinoCopyBtn" class="btn">Kopieren</button>
+          <div style="display:flex; gap:8px; margin-top:10px">
+            <button id="arduinoGenBtn" class="btn primary">Code generieren</button>
+            <button id="arduinoCopyBtn" class="btn">In Zwischenablage kopieren</button>
           </div>
 
           <label class="field" style="margin-top:12px">
             <span class="label">Generierter Code</span>
-            <textarea id="arduinoCode" class="textarea-auto mono" style="min-height:320px" readonly placeholder="// Code wird hier erzeugt …"></textarea>
+            <textarea id="arduinoCode" class="textarea-auto mono" style="min-height:280px" readonly placeholder="// Code wird hier erzeugt …"></textarea>
           </label>
         </div>
       </div>
     </dialog>
+  </div>
 
   <!-- 🔧 Login-/Unlock-Logik + Lazy-Loading -->
   <script>
