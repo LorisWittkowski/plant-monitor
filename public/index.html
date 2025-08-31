@@ -37,9 +37,13 @@
           <button
             id="calibBtn"
             type="button"
-            class="btn primary"
+            class="btn primary hide-mobile"
             data-action="calibrate"
-            onclick="window.App && window.App.openCalib()"
+            onclick="(function(){
+              var d=document.getElementById('calibModal');
+              if(!d) return;
+              try{ d.showModal(); }catch(_){ d.setAttribute('open',''); }
+            })()"
           >
             Kalibrieren
           </button>
