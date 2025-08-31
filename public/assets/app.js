@@ -18,12 +18,17 @@ const els = {
   chart: $("#chart"),
   rangeButtons: () => $$(".range .btn.seg"),
   themeToggle: $("#themeToggle"),
-  calibBtn: $("#calibBtn"), modal: $("#calibModal"),
+
+  // Kalibrierung
+  calibBtn: $("#calibBtn"),
+  modal: $("#calibModal"),
   dryInput: $("#dryInput"), wetInput: $("#wetInput"),
   useDryNow: $("#useDryNow"), useWetNow: $("#useWetNow"),
   readNow: $("#readNow"), liveRaw: $("#liveRaw"), livePct: $("#livePct"),
   saveCalib: $("#saveCalib"), resetCalib: $("#resetCalib"),
   calibLabel: $("#calibLabel"), calibMeta: $("#calibMeta"), calibPlantName: $("#calibPlantName"),
+
+  // Plant form
   pi_name: $("#pi_name"), pi_species: $("#pi_species"),
   pi_location: $("#pi_location"), pi_pot: $("#pi_pot"),
   pi_note: $("#pi_note"), saveInfo: $("#saveInfo"),
@@ -116,6 +121,7 @@ function resetLiveUI(){
 
 // ---- Dialog helpers: exakt ein Modal zur Zeit ----
 function safeShowModal(dlg){
+  if (!dlg) return;
   try { dlg.showModal(); }
   catch(e){ if (!dlg.open) dlg.setAttribute('open',''); }
 }
@@ -125,9 +131,12 @@ function closeAllDialogs(){
   });
 }
 function openModalSolo(dlg){
+  if (!dlg) return;
   closeAllDialogs();
-  // kleine Verzögerung, damit der UA das Schließen verarbeiten kann
-  setTimeout(()=> safeShowModal(dlg), 0);
+  // zwei Ticks geben Browsern Zeit, Close zu verarbeiten
+  requestAnimationFrame(()=> {
+    setTimeout(()=> safeShowModal(dlg), 0);
+  });
 }
 
 // ==== Live UI ====
@@ -331,21 +340,37 @@ async function readCurrentRaw(){
     }
   }catch{ els.liveRaw.textContent = "—"; }
 }
-function closeSidebar(){ els.sidebar?.classList.remove('open'); els.sidebar?.setAttribute('aria-hidden','true'); els.sidebarOverlay.hidden = true; }
+function closeSidebar(){
+  els.sidebar?.classList.remove('open');
+  els.sidebar?.setAttribute('aria-hidden','true');
+  if (els.sidebarOverlay) els.sidebarOverlay.hidden = true;
+}
+
 function openCalibModal(){
+  if (!els.modal) { console.error("Kalibrierungs-Dialog (#calibModal) nicht gefunden."); return; }
   closeSidebar();
   els.calibPlantName.textContent = plantProfile?.name || SENSOR_ID;
   renderCalibSummary();
-  els.dryInput.value = (config?.rawDry ?? "");
-  els.wetInput.value = (config?.rawWet ?? "");
-  els.liveRaw.textContent = "—";
-  els.livePct.textContent = "—%";
-  openModalSolo(els.modal);   // <— kein verschachteltes Modal
-  readCurrentRaw();
+  if (els.dryInput) els.dryInput.value = (config?.rawDry ?? "");
+  if (els.wetInput) els.wetInput.value = (config?.rawWet ?? "");
+  if (els.liveRaw) els.liveRaw.textContent = "—";
+  if (els.livePct) els.livePct.textContent = "—%";
+
+  // zuverlässig nur dieses Modal öffnen
+  openModalSolo(els.modal);
+
+  // nach dem Öffnen RAW anstoßen (kleiner Tick)
+  setTimeout(()=> { readCurrentRaw(); }, 60);
+
+  // wenn der UA das erste Öffnen ignoriert, noch ein Versuch im nächsten Frame
+  requestAnimationFrame(()=> {
+    if (!els.modal.open) safeShowModal(els.modal);
+  });
 }
-els.calibBtn?.addEventListener("click", openCalibModal);
-els.useDryNow?.addEventListener("click", async ()=>{ await readCurrentRaw(); const v = Number(els.liveRaw.textContent); if (Number.isFinite(v)) els.dryInput.value = v; setCalibPreviewFromInputs(); });
-els.useWetNow?.addEventListener("click", async ()=>{ await readCurrentRaw(); const v = Number(els.liveRaw.textContent); if (Number.isFinite(v)) els.wetInput.value = v; setCalibPreviewFromInputs(); });
+
+els.calibBtn?.addEventListener("click", (e)=>{ e.preventDefault(); openCalibModal(); });
+els.useDryNow?.addEventListener("click", async ()=>{ await readCurrentRaw(); const v = Number(els.liveRaw?.textContent); if (Number.isFinite(v) && els.dryInput) els.dryInput.value = v; setCalibPreviewFromInputs(); });
+els.useWetNow?.addEventListener("click", async ()=>{ await readCurrentRaw(); const v = Number(els.liveRaw?.textContent); if (Number.isFinite(v) && els.wetInput) els.wetInput.value = v; setCalibPreviewFromInputs(); });
 els.readNow?.addEventListener("click", readCurrentRaw);
 els.dryInput?.addEventListener("input", setCalibPreviewFromInputs);
 els.wetInput?.addEventListener("input", setCalibPreviewFromInputs);
@@ -381,7 +406,7 @@ els.resetCalib?.addEventListener("click", async ()=>{
 })();
 
 // ==== Sidebar controls ====
-function openSidebar(){ els.sidebar?.classList.add('open'); els.sidebar?.setAttribute('aria-hidden','false'); els.sidebarOverlay.hidden = false; }
+function openSidebar(){ els.sidebar?.classList.add('open'); els.sidebar?.setAttribute('aria-hidden','false'); if (els.sidebarOverlay) els.sidebarOverlay.hidden = false; }
 els.menuBtn?.addEventListener('click', openSidebar);
 els.sidebarClose?.addEventListener('click', closeSidebar);
 els.sidebarOverlay?.addEventListener('click', closeSidebar);
@@ -448,11 +473,9 @@ els.np_save?.addEventListener("click", async ()=>{
   if (!pin || !ALLOWED_PINS.includes(pin)) { alert("Bitte gültigen Analog-Pin wählen (A0–A5)."); return; }
 
   try{
-    // Registrierung (falls vorhanden)
     const r = await fetch("/api/register",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ sensorId:id, name })});
     if (!r.ok) { const txt = await r.text().catch(()=> ""); alert(`Fehler: ${r.status} ${txt}`); return; }
 
-    // Profil inkl. Pin setzen
     await fetch("/api/plant",{ method:"POST", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({ sensorId:id, profile:{ name: name || null, pin } })
     });
@@ -480,7 +503,6 @@ async function openInfo(){
     els.info_counts.textContent = `${c.history ?? 0} / ${c.agg10m ?? 0} / ${c.notes ?? 0}`;
     const b = data?.bytes || {};
     els.info_size.textContent = `${b?.total ? Math.round(b.total/1024) : 0} KB (gesamt)`;
-    // Pin vorselektieren
     const pin = data?.profile?.pin || plantProfile?.pin || "";
     if (els.info_pin) els.info_pin.value = ALLOWED_PINS.includes(pin) ? pin : "";
   }catch{
@@ -492,11 +514,11 @@ async function openInfo(){
     els.info_size.textContent = "—";
     if (els.info_pin) els.info_pin.value = plantProfile?.pin || "";
   }
-  openModalSolo(els.infoModal);   // <— Info sauber modal öffnen
+  openModalSolo(els.infoModal);
 }
 els.infoBtn?.addEventListener("click", openInfo);
 
-// Pin speichern im Info-Dialog
+// Pin speichern
 els.info_pin_save?.addEventListener("click", async ()=>{
   if (!SENSOR_ID) return;
   const pin = els.info_pin?.value?.trim();
@@ -511,7 +533,7 @@ els.info_pin_save?.addEventListener("click", async ()=>{
   }catch(e){ console.error(e); alert("Pin konnte nicht gespeichert werden."); }
 });
 
-// Wipe-Dialog (aus Info heraus – nie verschachteln)
+// Wipe
 function renderWipeLabel(){
   const v = Number(els.wipeRange?.value || 24);
   els.wipeLabel.textContent = (v === 25) ? "ALLE Daten" : `${v} h`;
@@ -520,7 +542,7 @@ els.openWipeBtn?.addEventListener("click", ()=>{
   if (!SENSOR_ID) { alert("Keine Pflanze ausgewählt."); return; }
   if (els.wipeRange) els.wipeRange.value = "24";
   renderWipeLabel();
-  openModalSolo(els.wipeModal);   // <— Info wird vorher geschlossen
+  openModalSolo(els.wipeModal);
 });
 els.wipeRange?.addEventListener("input", renderWipeLabel);
 
@@ -559,7 +581,7 @@ els.wipeConfirm?.addEventListener("click", async ()=>{
   }
 });
 
-// Löschen (mit UI-Reset)
+// Löschen
 async function deleteCurrentPlant(){
   if (!SENSOR_ID) { alert("Keine Pflanze ausgewählt."); return; }
   const displayName = plantProfile?.name || els.info_name?.textContent || SENSOR_ID;
@@ -571,7 +593,7 @@ async function deleteCurrentPlant(){
   if (btn){ btn.disabled = true; btn.textContent = "Lösche…"; }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(()=>controller.abort(), 10000); // 10s Timeout
+  const timeoutId = setTimeout(()=>controller.abort(), 10000);
 
   try{
     const r = await fetch("/api/delete-plant", {
@@ -619,12 +641,12 @@ async function deleteCurrentPlant(){
 }
 els.deletePlantBtn?.addEventListener("click", deleteCurrentPlant);
 
-// === Arduino Generator (lazy load, nur Anzeige/Generierung) ===
+// === Arduino Generator (lazy load) ===
 async function openArduinoGenerator(){
   if (!window.ArduinoGen) {
     await (function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.defer=true; s.onload=res; s.onerror=rej; document.head.appendChild(s); });})("/assets/arduino-gen.js");
   }
-  openModalSolo(document.getElementById("arduinoModal")); // sicherstellen, dass kein anderes Modal offen bleibt
+  openModalSolo(document.getElementById("arduinoModal"));
   window.ArduinoGen.open();
 }
 els.arduinoBtn?.addEventListener("click", openArduinoGenerator);
