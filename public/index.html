@@ -34,7 +34,15 @@
 
           <!-- Mobile: sichtbar -->
           <button id="themeToggle" class="btn tiny" aria-label="Theme umschalten">Dark</button>
-          <button id="calibBtn" class="btn primary hide-mobile">Kalibrieren</button>
+          <button
+            id="calibBtn"
+            type="button"
+            class="btn primary"
+            data-action="calibrate"
+            onclick="window.App && window.App.openCalib()"
+          >
+            Kalibrieren
+          </button>
           <button id="infoBtn" class="btn">Info</button>
         </div>
       </div>
