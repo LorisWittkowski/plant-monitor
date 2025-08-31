@@ -15,7 +15,7 @@
       <input id="pinInput" class="input" type="password" inputmode="numeric" placeholder="PIN eingeben" />
     </label>
     <div style="display:flex; gap:8px; align-items:center; margin-top:10px">
-      <button id="pinBtn" class="btn primary">Login</button>
+      <button id="pinBtn" class="btn primary" type="button">Login</button>
       <span id="msg" class="text-danger"></span>
     </div>
   </div>
@@ -25,17 +25,17 @@
     <!-- Sticky Topbar -->
     <header class="topbar">
       <div class="container topbar-inner">
-        <button id="menuBtn" class="btn tiny icon-left" aria-label="Seitenmenü öffnen">☰</button>
+        <button id="menuBtn" class="btn tiny icon-left" type="button" aria-label="Seitenmenü öffnen">☰</button>
         <h1 class="brand">Plant Monitor</h1>
         <div class="actions">
           <!-- Mobile: per CSS ausgeblendet -->
-          <button id="arduinoBtn" class="btn tiny hide-mobile" title="Arduino-Code Generator">Arduino</button>
-          <button id="logoutBtn" class="btn tiny hide-mobile" aria-label="Logout">Logout</button>
+          <button id="arduinoBtn" class="btn tiny hide-mobile" type="button" title="Arduino-Code Generator">Arduino</button>
+          <button id="logoutBtn" class="btn tiny hide-mobile" type="button" aria-label="Logout">Logout</button>
 
           <!-- Mobile: sichtbar -->
-          <button id="themeToggle" class="btn tiny" aria-label="Theme umschalten">Dark</button>
+          <button id="themeToggle" class="btn tiny" type="button" aria-label="Theme umschalten">Dark</button>
 
-          <!-- ⚠️ Direkt mit Fallback auf die globale API -->
+          <!-- Kalibrieren mit Fallback auf globale API -->
           <button id="calibBtn"
                   class="btn primary"
                   type="button"
@@ -53,11 +53,11 @@
     <aside id="sidebar" class="sidebar" aria-hidden="true">
       <div class="sidebar-head">
         <strong>Pflanzen</strong>
-        <button id="sidebarClose" class="btn icon" aria-label="Schließen">✕</button>
+        <button id="sidebarClose" class="btn icon" type="button" aria-label="Schließen">✕</button>
       </div>
       <nav class="plant-list" id="plantList" role="listbox" aria-label="Pflanzen auswählen"></nav>
       <div class="sidebar-foot">
-        <button id="addPlantBtn" class="btn primary" style="width:100%">➕ Neue Pflanze</button>
+        <button id="addPlantBtn" class="btn primary" type="button" style="width:100%">➕ Neue Pflanze</button>
       </div>
     </aside>
     <div id="sidebarOverlay" class="sidebar-overlay" hidden></div>
@@ -117,7 +117,7 @@
           <h3>Historie</h3>
           <div class="head-tools">
             <div class="range" role="tablist" aria-label="Zeitraum auswählen">
-              <button class="btn seg" data-range="1h"  role="tab" aria-selected="true" type="button">Letzte Stunde</button>
+              <button class="btn seg" data-range="1h"  role="tab" aria-selected="true"  type="button">Letzte Stunde</button>
               <button class="btn seg" data-range="24h" role="tab" aria-selected="false" type="button">24 h</button>
               <button class="btn seg" data-range="7d"  role="tab" aria-selected="false" type="button">7 Tage</button>
             </div>
@@ -141,7 +141,7 @@
       <div class="modal-card">
         <header class="modal-head">
           <h4>Neue Pflanze anlegen</h4>
-          <button class="btn icon close" onclick="this.closest('dialog').close();">✕</button>
+          <button class="btn icon close" type="button" onclick="this.closest('dialog').close();">✕</button>
         </header>
         <div class="modal-body">
           <label class="field">
@@ -174,12 +174,64 @@
       </div>
     </dialog>
 
+    <!-- 🔧 Kalibrierung (FEHLTE ZUVOR) -->
+    <dialog id="calibModal" class="modal">
+      <div class="modal-card">
+        <header class="modal-head">
+          <h4>Kalibrierung – <span id="calibPlantName">—</span></h4>
+          <button class="btn icon close" type="button" onclick="this.closest('dialog').close();" aria-label="Schließen">✕</button>
+        </header>
+        <div class="modal-body">
+          <section class="calib-summary">
+            <div class="row1"><strong>Aktuell:</strong> <span id="calibLabel">Keine Kalibrierung gespeichert</span></div>
+            <div class="row2" id="calibMeta">Fallback aktiv (0–4095 → %)</div>
+          </section>
+
+          <div class="grid2 gap">
+            <div class="card subtle">
+              <div class="field">
+                <span class="label">Trocken (RAW)</span>
+                <div class="inline">
+                  <input id="dryInput" class="input" placeholder="z. B. 3800" inputmode="numeric" />
+                  <button id="useDryNow" class="btn tiny" type="button">Aktuell</button>
+                </div>
+              </div>
+              <p class="muted small">Sensor trocken, „Aktuell“ übernehmen.</p>
+            </div>
+
+            <div class="card subtle">
+              <div class="field">
+                <span class="label">Nass (RAW)</span>
+                <div class="inline">
+                  <input id="wetInput" class="input" placeholder="z. B. 1200" inputmode="numeric" />
+                  <button id="useWetNow" class="btn tiny" type="button">Aktuell</button>
+                </div>
+              </div>
+              <p class="muted small">Sensor nass, „Aktuell“ übernehmen.</p>
+            </div>
+          </div>
+
+          <div class="calib-preview">
+            <div><div class="muted small">Aktueller RAW</div><div id="liveRaw" class="mono big">—</div></div>
+            <div><div class="muted small">Ergibt (mit obiger Skala)</div><div id="livePct" class="mono big">—%</div></div>
+            <div class="spacer"></div>
+            <button id="readNow" class="btn" type="button">RAW jetzt lesen</button>
+          </div>
+        </div>
+        <footer class="modal-foot">
+          <button id="resetCalib" class="btn ghost" type="button">Zurücksetzen</button>
+          <div class="spacer"></div>
+          <button id="saveCalib" class="btn primary" type="button">Kalibrierung speichern</button>
+        </footer>
+      </div>
+    </dialog>
+
     <!-- Info & Verwaltung -->
     <dialog id="infoModal" class="modal">
       <div class="modal-card">
         <header class="modal-head">
           <h4>Pflanzen-Info</h4>
-          <button class="btn icon close" onclick="this.closest('dialog').close();" aria-label="Schließen">✕</button>
+          <button class="btn icon close" type="button" onclick="this.closest('dialog').close();" aria-label="Schließen">✕</button>
         </header>
         <div class="modal-body">
           <div class="grid2 gap">
@@ -239,7 +291,7 @@
       <div class="modal-card">
         <header class="modal-head">
           <h4>Historie zurücksetzen</h4>
-          <button class="btn icon close" onclick="this.closest('dialog').close();" aria-label="Schließen">✕</button>
+          <button class="btn icon close" type="button" onclick="this.closest('dialog').close();" aria-label="Schließen">✕</button>
         </header>
         <div class="modal-body">
           <p class="muted small" style="margin-top:0">
@@ -272,7 +324,7 @@
       <div class="modal-card">
         <header class="modal-head">
           <h4>Arduino-Code Generator</h4>
-          <button class="btn icon close" onclick="this.closest('dialog').close();" aria-label="Schließen">✕</button>
+          <button class="btn icon close" type="button" onclick="this.closest('dialog').close();" aria-label="Schließen">✕</button>
         </header>
         <div class="modal-body">
           <p class="muted small" style="margin-top:0">
