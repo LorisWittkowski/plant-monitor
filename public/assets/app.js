@@ -338,8 +338,72 @@ function openCalibModal(){
 }
 
 // Klassisches Binding + Delegation + globaler Fallback
-els.calibBtn?.addEventListener("click", openCalibModal);
+// ==== Robust dialog open helpers (replace your old listeners with this) ====
 
+// Safer modal opener (works even if showModal() throws)
+function safeOpenDialog(dlg){
+  if (!dlg) return false;
+  try { dlg.showModal(); return true; }
+  catch { dlg.setAttribute("open",""); return true; } // non-modal fallback
+}
+
+// Hardened calibrate modal open
+function openCalibModal(){
+  const dlg = document.getElementById("calibModal");
+  if (!dlg) { alert("Kalibrierungs-Dialog nicht gefunden."); return; }
+
+  // Close sidebar overlay if any
+  closeSidebar?.();
+
+  // UI priming (won't throw if fields missing)
+  if (els.calibPlantName) els.calibPlantName.textContent = plantProfile?.name || SENSOR_ID || "—";
+  renderCalibSummary?.();
+  if (els.dryInput) els.dryInput.value = (config?.rawDry ?? "");
+  if (els.wetInput) els.wetInput.value = (config?.rawWet ?? "");
+  if (els.liveRaw) els.liveRaw.textContent = "—";
+  if (els.livePct) els.livePct.textContent = "—%";
+
+  // Open the dialog + kick first read
+  if (safeOpenDialog(dlg)) { readCurrentRaw?.(); }
+}
+
+// Global, resilient click delegation (works even if elements are re-rendered)
+(function bindGlobalClicks(){
+  document.addEventListener("click", (ev)=>{
+    const t = ev.target;
+
+    // Kalibrieren
+    if (t.closest && t.closest("#calibBtn")) {
+      ev.preventDefault();
+      openCalibModal();
+      return;
+    }
+
+    // Info öffnen
+    if (t.closest && t.closest("#infoBtn")) {
+      ev.preventDefault();
+      openInfo?.();
+      return;
+    }
+
+    // Historie zurücksetzen (Button inside dialog)
+    if (t.closest && t.closest("#openWipeBtn")) {
+      ev.preventDefault();
+      // This just opens the wipe dialog; the confirm button keeps its own handler
+      const dlg = document.getElementById("wipeModal");
+      if (!dlg) { alert("Wipe-Dialog nicht gefunden."); return; }
+      safeOpenDialog(dlg);
+      return;
+    }
+
+    // Pflanze löschen
+    if (t.closest && t.closest("#deletePlantBtn")) {
+      ev.preventDefault();
+      deleteCurrentPlant?.();
+      return;
+    }
+  }, { passive:true });
+})();
 // ==== Scale switch ====
 (function initScaleSwitch(){
   const saved = localStorage.getItem("fixedScale");
