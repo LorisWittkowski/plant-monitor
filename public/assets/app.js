@@ -59,8 +59,7 @@ const els = {
   wipeConfirm: $("#wipeConfirm"),
 };
 
-// UNO R4: A0–A13
-const ALLOWED_PINS = ["A0","A1","A2","A3","A4","A5","A6","A7","A8","A9","A10","A11","A12","A13"];
+const ALLOWED_PINS = ["A0","A1","A2","A3","A4","A5"];
 
 // ==== Theme ====
 (function initTheme(){
@@ -113,6 +112,22 @@ function resetLiveUI(){
   els.raw.textContent = "—";
   els.ts.textContent = "—";
   currentDisplayedPercent = null;
+}
+
+// ---- Dialog helpers: exakt ein Modal zur Zeit ----
+function safeShowModal(dlg){
+  try { dlg.showModal(); }
+  catch(e){ if (!dlg.open) dlg.setAttribute('open',''); }
+}
+function closeAllDialogs(){
+  document.querySelectorAll('dialog[open]').forEach(d=>{
+    try{ d.close(); }catch{ d.removeAttribute('open'); }
+  });
+}
+function openModalSolo(dlg){
+  closeAllDialogs();
+  // kleine Verzögerung, damit der UA das Schließen verarbeiten kann
+  setTimeout(()=> safeShowModal(dlg), 0);
 }
 
 // ==== Live UI ====
@@ -284,7 +299,6 @@ async function savePlantProfile(){
   try{
     const r = await fetch("/api/plant",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
     if (!r.ok) throw 0; btn.textContent="Gespeichert ✓"; await fetchPlant();
-    // Sidebar-Label live aktualisieren
     const active = els.plantList?.querySelector('.plant-item[aria-selected="true"] .plant-name');
     if (active && els.pi_name?.value) active.textContent = els.pi_name.value;
   }catch{ btn.textContent="Fehler ❌"; }
@@ -317,10 +331,6 @@ async function readCurrentRaw(){
     }
   }catch{ els.liveRaw.textContent = "—"; }
 }
-function safeShowModal(dlg){
-  try { dlg.showModal(); }
-  catch(e){ if (!dlg.open) dlg.setAttribute('open',''); }
-}
 function closeSidebar(){ els.sidebar?.classList.remove('open'); els.sidebar?.setAttribute('aria-hidden','true'); els.sidebarOverlay.hidden = true; }
 function openCalibModal(){
   closeSidebar();
@@ -330,7 +340,7 @@ function openCalibModal(){
   els.wetInput.value = (config?.rawWet ?? "");
   els.liveRaw.textContent = "—";
   els.livePct.textContent = "—%";
-  safeShowModal(els.modal);
+  openModalSolo(els.modal);   // <— kein verschachteltes Modal
   readCurrentRaw();
 }
 els.calibBtn?.addEventListener("click", openCalibModal);
@@ -345,7 +355,7 @@ els.saveCalib?.addEventListener("click", async ()=>{
   if (!Number.isFinite(rawDry) || !Number.isFinite(rawWet)) { alert("Bitte DRY und WET RAW eingeben."); return; }
   if (rawDry===rawWet) { alert("Trocken und Nass müssen verschieden sein."); return; }
   const resp = await fetch("/api/calibrate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sensorId:SENSOR_ID,rawDry,rawWet})});
-  if (resp.ok){ els.modal?.close(); await fetchSeries(currentRange); } else {
+  if (resp.ok){ closeAllDialogs(); await fetchSeries(currentRange); } else {
     const t = await resp.text().catch(()=> "");
     alert("Kalibrierung fehlgeschlagen: "+t);
   }
@@ -393,7 +403,7 @@ async function loadSensors(){
       item.dataset.id = s.id;
       item.innerHTML = `
         <span class="plant-name">${s.name || s.id}</span>
-        <span class="plant-meta">${s.calibrated ? 'kalibriert' : 'unkalibriert'}${s.pin ? ' · ' + s.pin : ''}</span>
+        <span class="plant-meta">${s.calibrated ? 'kalibriert' : 'unkalibriert'}</span>
       `;
       if (s.id === SENSOR_ID) item.setAttribute('aria-selected','true');
       item.addEventListener('click', ()=>{
@@ -429,30 +439,32 @@ async function loadSensors(){
 }
 
 // Neue Pflanze (mit Pin)
-els.addPlantBtn?.addEventListener("click", ()=> els.newPlantModal?.showModal());
+els.addPlantBtn?.addEventListener("click", ()=> openModalSolo(els.newPlantModal));
 els.np_save?.addEventListener("click", async ()=>{
   const id = els.np_id?.value?.trim();
   const name = els.np_name?.value?.trim();
   const pin = els.np_pin?.value?.trim();
   if (!id) { alert("Bitte Sensor-ID eingeben!"); return; }
-  if (!pin || !ALLOWED_PINS.includes(pin)) { alert("Bitte gültigen Analog-Pin wählen (A0–A13)."); return; }
+  if (!pin || !ALLOWED_PINS.includes(pin)) { alert("Bitte gültigen Analog-Pin wählen (A0–A5)."); return; }
 
   try{
+    // Registrierung (falls vorhanden)
     const r = await fetch("/api/register",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ sensorId:id, name })});
     if (!r.ok) { const txt = await r.text().catch(()=> ""); alert(`Fehler: ${r.status} ${txt}`); return; }
 
+    // Profil inkl. Pin setzen
     await fetch("/api/plant",{ method:"POST", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({ sensorId:id, profile:{ name: name || null, pin } })
     });
 
-    els.newPlantModal?.close(); els.np_id.value = ""; els.np_name.value = ""; els.np_pin.value = "";
-    await loadSensors(); SENSOR_ID = id; localStorage.setItem("sensorId", id);
+    closeAllDialogs();
+    await loadSensors();
+    SENSOR_ID = id; localStorage.setItem("sensorId", id);
     fetchSeries(currentRange); fetchPlant();
   }catch(e){ console.error(e); alert("Fehler beim Anlegen!"); }
 });
 
 // ==== Info modal + Wipe + Delete ====
-// Info öffnen (inkl. Pin anzeigen)
 async function openInfo(){
   if (!SENSOR_ID) return;
   closeSidebar();
@@ -468,7 +480,7 @@ async function openInfo(){
     els.info_counts.textContent = `${c.history ?? 0} / ${c.agg10m ?? 0} / ${c.notes ?? 0}`;
     const b = data?.bytes || {};
     els.info_size.textContent = `${b?.total ? Math.round(b.total/1024) : 0} KB (gesamt)`;
-
+    // Pin vorselektieren
     const pin = data?.profile?.pin || plantProfile?.pin || "";
     if (els.info_pin) els.info_pin.value = ALLOWED_PINS.includes(pin) ? pin : "";
   }catch{
@@ -480,27 +492,26 @@ async function openInfo(){
     els.info_size.textContent = "—";
     if (els.info_pin) els.info_pin.value = plantProfile?.pin || "";
   }
-  safeShowModal(els.infoModal);
+  openModalSolo(els.infoModal);   // <— Info sauber modal öffnen
 }
-els.infoBtn?.addEventListener("click", openInfo, { passive:true });
+els.infoBtn?.addEventListener("click", openInfo);
 
 // Pin speichern im Info-Dialog
 els.info_pin_save?.addEventListener("click", async ()=>{
   if (!SENSOR_ID) return;
   const pin = els.info_pin?.value?.trim();
-  if (!pin || !ALLOWED_PINS.includes(pin)) { alert("Bitte gültigen Analog-Pin wählen (A0–A13)."); return; }
+  if (!pin || !ALLOWED_PINS.includes(pin)) { alert("Bitte gültigen Analog-Pin wählen (A0–A5)."); return; }
   try{
     const r = await fetch("/api/plant",{ method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({ sensorId: SENSOR_ID, profile:{ pin } })
     });
     if (!r.ok){ const t = await r.text().catch(()=> ""); throw new Error(`${r.status} ${t}`); }
-    await fetchPlant();            // Profil neu holen
-    await loadSensors();           // Sidebar-Name/Pin frisch ziehen
+    await fetchPlant();
     alert("Pin gespeichert.");
   }catch(e){ console.error(e); alert("Pin konnte nicht gespeichert werden."); }
 });
 
-// Wipe-Dialog
+// Wipe-Dialog (aus Info heraus – nie verschachteln)
 function renderWipeLabel(){
   const v = Number(els.wipeRange?.value || 24);
   els.wipeLabel.textContent = (v === 25) ? "ALLE Daten" : `${v} h`;
@@ -509,7 +520,7 @@ els.openWipeBtn?.addEventListener("click", ()=>{
   if (!SENSOR_ID) { alert("Keine Pflanze ausgewählt."); return; }
   if (els.wipeRange) els.wipeRange.value = "24";
   renderWipeLabel();
-  safeShowModal(els.wipeModal);
+  openModalSolo(els.wipeModal);   // <— Info wird vorher geschlossen
 });
 els.wipeRange?.addEventListener("input", renderWipeLabel);
 
@@ -536,7 +547,7 @@ els.wipeConfirm?.addEventListener("click", async ()=>{
       const t = await r.text().catch(()=> "");
       throw new Error(`Serverfehler ${r.status}: ${t}`);
     }
-    els.wipeModal?.close();
+    closeAllDialogs();
     await fetchSeries(currentRange);
     await openInfo();
     alert("Historie wurde zurückgesetzt.");
@@ -560,7 +571,7 @@ async function deleteCurrentPlant(){
   if (btn){ btn.disabled = true; btn.textContent = "Lösche…"; }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(()=>controller.abort(), 10000);
+  const timeoutId = setTimeout(()=>controller.abort(), 10000); // 10s Timeout
 
   try{
     const r = await fetch("/api/delete-plant", {
@@ -576,7 +587,7 @@ async function deleteCurrentPlant(){
       throw new Error(`Serverfehler ${r.status}: ${txt}`);
     }
 
-    els.infoModal?.close();
+    closeAllDialogs();
 
     SENSOR_ID = null;
     localStorage.removeItem("sensorId");
@@ -606,12 +617,14 @@ async function deleteCurrentPlant(){
     if (btn){ btn.disabled = false; btn.textContent = oldLabel; }
   }
 }
+els.deletePlantBtn?.addEventListener("click", deleteCurrentPlant);
 
-// === Arduino Generator (lazy load) ===
+// === Arduino Generator (lazy load, nur Anzeige/Generierung) ===
 async function openArduinoGenerator(){
   if (!window.ArduinoGen) {
     await (function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.defer=true; s.onload=res; s.onerror=rej; document.head.appendChild(s); });})("/assets/arduino-gen.js");
   }
+  openModalSolo(document.getElementById("arduinoModal")); // sicherstellen, dass kein anderes Modal offen bleibt
   window.ArduinoGen.open();
 }
 els.arduinoBtn?.addEventListener("click", openArduinoGenerator);
