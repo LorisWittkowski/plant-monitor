@@ -1,13 +1,12 @@
-<!-- file: public/index.html -->
 <!doctype html>
 <html lang="de">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Plant Monitor</title>
   <link rel="stylesheet" href="/assets/style.css" />
 </head>
-<body>
+<body class="safe-top safe-bottom">
   <!-- 🔒 Login -->
   <div id="lockScreen" class="container" style="padding:40px;max-width:480px">
     <h2 class="brand" style="margin-bottom:12px">🔒 Plant Monitor Login</h2>
@@ -29,10 +28,13 @@
         <button id="menuBtn" class="btn tiny icon-left" aria-label="Seitenmenü öffnen">☰</button>
         <h1 class="brand">Plant Monitor</h1>
         <div class="actions">
-          <button id="arduinoBtn" class="btn tiny" title="Arduino-Code Generator">Arduino</button>
-          <button id="logoutBtn" class="btn tiny" aria-label="Logout">Logout</button>
+          <!-- Mobile: per CSS ausgeblendet -->
+          <button id="arduinoBtn" class="btn tiny hide-mobile" title="Arduino-Code Generator">Arduino</button>
+          <button id="logoutBtn" class="btn tiny hide-mobile" aria-label="Logout">Logout</button>
+
+          <!-- Mobile: sichtbar -->
           <button id="themeToggle" class="btn tiny" aria-label="Theme umschalten">Dark</button>
-          <button id="calibBtn" class="btn primary">Kalibrieren</button>
+          <button id="calibBtn" class="btn primary hide-mobile">Kalibrieren</button>
           <button id="infoBtn" class="btn">Info</button>
         </div>
       </div>
@@ -148,10 +150,12 @@
               <span class="label">Analog-Pin (UNO R4)</span>
               <select id="np_pin" class="input">
                 <option value="">— bitte wählen —</option>
-                <option value="A0">A0</option><option value="A1">A1</option><option value="A2">A2</option><option value="A3">A3</option>
-                <option value="A4">A4</option><option value="A5">A5</option><option value="A6">A6</option><option value="A7">A7</option>
-                <option value="A8">A8</option><option value="A9">A9</option><option value="A10">A10</option><option value="A11">A11</option>
-                <option value="A12">A12</option><option value="A13">A13</option>
+                <option value="A0">A0</option>
+                <option value="A1">A1</option>
+                <option value="A2">A2</option>
+                <option value="A3">A3</option>
+                <option value="A4">A4</option>
+                <option value="A5">A5</option>
               </select>
             </label>
           </div>
@@ -162,7 +166,7 @@
       </div>
     </dialog>
 
-    <!-- Info & Verwaltung (Pin hier einstellbar) -->
+    <!-- Info & Verwaltung -->
     <dialog id="infoModal" class="modal">
       <div class="modal-card">
         <header class="modal-head">
@@ -187,7 +191,6 @@
               <span class="label">Zuletzt geändert</span>
               <div id="info_updated">—</div>
             </div>
-
             <div class="field">
               <span class="label">Einträge (History / 10-Min / Notizen)</span>
               <div id="info_counts">—</div>
@@ -202,10 +205,12 @@
               <span class="label">Analog-Pin (UNO R4)</span>
               <select id="info_pin" class="input">
                 <option value="">— bitte wählen —</option>
-                <option value="A0">A0</option><option value="A1">A1</option><option value="A2">A2</option><option value="A3">A3</option>
-                <option value="A4">A4</option><option value="A5">A5</option><option value="A6">A6</option><option value="A7">A7</option>
-                <option value="A8">A8</option><option value="A9">A9</option><option value="A10">A10</option><option value="A11">A11</option>
-                <option value="A12">A12</option><option value="A13">A13</option>
+                <option value="A0">A0</option>
+                <option value="A1">A1</option>
+                <option value="A2">A2</option>
+                <option value="A3">A3</option>
+                <option value="A4">A4</option>
+                <option value="A5">A5</option>
               </select>
             </label>
             <div style="display:flex; align-items:end">
@@ -221,92 +226,7 @@
       </div>
     </dialog>
 
-    <!-- Mini-Dialog: Historie zurücksetzen -->
-    <dialog id="wipeModal" class="modal">
-      <div class="modal-card">
-        <header class="modal-head">
-          <h4>Historie zurücksetzen</h4>
-          <button class="btn icon close" onclick="this.closest('dialog').close();" aria-label="Schließen">✕</button>
-        </header>
-        <div class="modal-body">
-          <p class="muted small" style="margin-top:0">
-            Wähle, welche Daten gelöscht werden sollen. Betroffen sind <strong>History</strong> und die <strong>10-Min-Aggregation</strong>.
-            Profil &amp; Kalibrierung bleiben erhalten.
-          </p>
-
-          <div class="card subtle" style="padding:12px">
-            <label class="field">
-              <span class="label">Zeitraum</span>
-              <input id="wipeRange" class="input" type="range" min="1" max="25" step="1" value="24" />
-            </label>
-            <div style="display:flex; align-items:center; gap:10px">
-              <div class="muted small">Älter als</div>
-              <div id="wipeLabel" class="mono big">24&nbsp;h</div>
-            </div>
-            <div class="muted small">
-              1–24&nbsp;h: löscht Einträge <em>älter</em> als X&nbsp;Stunden · 25&nbsp;h: <strong>Alle</strong> historischen Daten
-            </div>
-          </div>
-        </div>
-        <footer class="modal-foot">
-          <button id="wipeConfirm" class="btn primary">Zurücksetzen</button>
-        </footer>
-      </div>
-    </dialog>
-
-    <!-- ⚙️ Kalibrierung -->
-    <dialog id="calibModal" class="modal">
-      <div class="modal-card">
-        <header class="modal-head">
-          <h4>Kalibrierung – <span id="calibPlantName">—</span></h4>
-          <button class="btn icon close" onclick="this.closest('dialog').close();" aria-label="Schließen">✕</button>
-        </header>
-        <div class="modal-body">
-          <section class="calib-summary">
-            <div class="row1"><strong>Aktuell:</strong> <span id="calibLabel">Keine Kalibrierung gespeichert</span></div>
-            <div class="row2" id="calibMeta">Fallback aktiv (0–4095 → %)</div>
-          </section>
-
-          <div class="grid2 gap">
-            <div class="card subtle">
-              <div class="field">
-                <span class="label">Trocken (RAW)</span>
-                <div class="inline">
-                  <input id="dryInput" class="input" placeholder="z. B. 3800" inputmode="numeric" />
-                  <button id="useDryNow" class="btn tiny">Aktuell</button>
-                </div>
-              </div>
-              <p class="muted small">Sensor trocken, „Aktuell“ übernehmen.</p>
-            </div>
-
-            <div class="card subtle">
-              <div class="field">
-                <span class="label">Nass (RAW)</span>
-                <div class="inline">
-                  <input id="wetInput" class="input" placeholder="z. B. 1200" inputmode="numeric" />
-                  <button id="useWetNow" class="btn tiny">Aktuell</button>
-                </div>
-              </div>
-              <p class="muted small">Sensor nass, „Aktuell“ übernehmen.</p>
-            </div>
-          </div>
-
-          <div class="calib-preview">
-            <div><div class="muted small">Aktueller RAW</div><div id="liveRaw" class="mono big">—</div></div>
-            <div><div class="muted small">Ergibt (mit obiger Skala)</div><div id="livePct" class="mono big">—%</div></div>
-            <div class="spacer"></div>
-            <button id="readNow" class="btn">RAW jetzt lesen</button>
-          </div>
-        </div>
-        <footer class="modal-foot">
-          <button id="resetCalib" class="btn ghost">Zurücksetzen</button>
-          <div class="spacer"></div>
-          <button id="saveCalib" class="btn primary">Kalibrierung speichern</button>
-        </footer>
-      </div>
-    </dialog>
-
-    <!-- 🛠️ Arduino Code Generator (read-only Pins) -->
+    <!-- 🛠️ Arduino Code Generator (Pins read-only) -->
     <dialog id="arduinoModal" class="modal">
       <div class="modal-card">
         <header class="modal-head">
