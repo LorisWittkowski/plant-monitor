@@ -1,3 +1,5 @@
+/* file: public/assets/style.css */
+
 /* ===== Theme Vars ===== */
 :root{
   --bg:#f5f6f7;
@@ -125,6 +127,7 @@ select.select{ background-image: none }
   cursor:pointer;
   transition:filter .15s ease, background .15s ease, color .15s ease, border-color .15s ease;
   min-height:40px;
+  font-weight:500;
 }
 .btn:hover{ filter:brightness(1.04) }
 .btn.primary{ background:var(--fg); color:var(--panel); border-color:var(--fg) }
@@ -280,7 +283,7 @@ textarea[readonly]{ opacity:.95; }
   html, body{ overscroll-behavior-y:none }
   .container{ padding:12px 12px max(12px, env(safe-area-inset-bottom)) }
 
-  /* Topbar: 3-Spalten-Grid → kein Umbruch, keine Scrollerei */
+  /* Topbar → 3-Spalten-Grid */
   .topbar{ padding-top: env(safe-area-inset-top); }
   .topbar-inner{
     display:grid;
@@ -289,27 +292,55 @@ textarea[readonly]{ opacity:.95; }
     gap:8px;
     padding:8px 8px;
   }
-  .topbar-inner > #menuBtn{ grid-column:1 }
+
+  /* Brand etwas schlanker */
   .brand{
     grid-column:2;
-    font-size:20px;
-    line-height:1.2;
+    font-size:19px;
+    font-weight:500;        /* weniger fett */
+    letter-spacing:-0.01em;
     margin:0;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
+
+  /* Nur „Dark“ und „Info“ anzeigen, einheitlicher Chip-Look */
+  .hide-mobile{ display:none !important } /* Arduino/Logout etc. verbergen */
   .actions{
     grid-column:3;
-    display:flex;
-    gap:6px;
-    align-items:center;
-    flex-wrap:nowrap;
-    overflow:hidden;
+    display:flex; gap:6px; align-items:center; flex-wrap:nowrap; overflow:hidden;
   }
-  .actions .btn{ white-space:nowrap; flex:0 1 auto; max-width:46vw }
-  .actions .btn.tiny{ padding:8px 10px; border-radius:12px }
-  .hide-mobile{ display:none !important } /* Arduino/Logout/Kalibrieren aus */
+  .actions .btn{
+    padding:6px 10px;
+    font-size:13px;
+    line-height:1;
+    border-radius:11px;
+    border-color:var(--stroke);
+    background:var(--panel-tint);
+    color:var(--muted);
+    min-height:34px;       /* kompakter */
+    font-weight:500;
+  }
+  #infoBtn{ /* Info wie tiny-Chip behandeln */
+    background:var(--panel-tint);
+  }
+
+  /* Segmented Range – weniger „fett“ */
+  .range{ gap:4px; padding:3px; border-radius:14px }
+  .btn.seg{
+    padding:7px 10px;
+    font-size:13px;
+    border-radius:10px;
+    font-weight:500;
+  }
+  .btn.seg[aria-selected="true"]{
+    background:color-mix(in oklab, var(--fg) 92%, transparent); /* etwas softer */
+    color:var(--panel);
+  }
+
+  /* Switch kompakter */
+  .switch .track{ width:34px; height:18px }
+  .switch .track::after{ width:12px; height:12px }
+  .switch input:checked + .track::after{ transform:translateX(16px) }
 
   /* Karten/Grids/Chart kompakter */
   .card{ border-radius:18px; padding:14px }
@@ -317,20 +348,21 @@ textarea[readonly]{ opacity:.95; }
   .grid2{ grid-template-columns:1fr }
   .chart-wrap{ height:240px }
 
-  /* Inputs: stabile Größe (kein iOS-Zoom) & große Touch-Ziele */
+  /* Inputs/Buttons: iOS-Zoom vermeiden, Touch-Ziele sauber */
   .input, .select, .btn, .textarea-auto{ font-size:16px }
-  .btn{ min-height:44px }
+  .btn{ min-height:40px }
 
-  /* Dialoge etwas kompakter, sicher in Viewport */
-  .modal-card{
-    width:min(720px, 96vw);
-    margin:0 auto;
-    border-radius:18px;
-  }
+  /* Dialoge kompakter, viewport-sicher */
+  .modal-card{ width:min(720px, 96vw); margin:0 auto; border-radius:18px }
   .modal-body{ padding:12px }
   .modal-foot{ padding:12px }
 
   /* Sidebar etwas schmaler */
   .sidebar{ width:min(86vw, 320px) }
-  #arduinoList .arduino-row{ grid-template-columns: 1fr 1fr; }
+
+  /* Live-Prozent minimal kleiner auf sehr kleinen Screens */
+  @media (max-width:380px){
+    .live-left{ min-width:118px }
+    .live-percent{ font-size:54px }
+  }
 }
