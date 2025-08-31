@@ -365,4 +365,48 @@ textarea[readonly]{ opacity:.95; }
     .live-left{ min-width:118px }
     .live-percent{ font-size:54px }
   }
+  /* ===== Mobile: Sticky Historie-Header (ultra clean) ===== */
+@media (max-width:640px){
+  :root{ --topbarH: 56px } /* grobe Topbar-Höhe; passt gut zu deinem Layout */
+
+  /* Nur die Card-Header, die eine Range enthalten, werden sticky */
+  .card-head:has(.range){
+    position: sticky;
+    top: calc(var(--topbarH) + 8px + env(safe-area-inset-top));
+    z-index: 5;
+
+    /* Optik: clean, ruhig */
+    background: var(--panel);
+    backdrop-filter: blur(6px) saturate(160%);
+    -webkit-backdrop-filter: blur(6px) saturate(160%);
+    margin: -16px -16px 10px;  /* gleicht Card-Padding aus */
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--stroke);
+  }
+
+  /* Kompakt & einheitlich für die Segment-Leiste */
+  .card-head:has(.range) .head-tools{
+    width: 100%;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+  .card-head:has(.range) .range{
+    flex: 1;
+    gap: 4px;
+    padding: 3px;
+    border-radius: 12px;
+  }
+  .card-head:has(.range) .btn.seg{
+    padding: 8px 10px;
+    border-radius: 10px;
+    font-size: 13px;
+  }
+  .card-head:has(.range) .switch{ margin-left: 6px }
+
+  /* Chart darunter bekommt etwas Luft */
+  .card:has(.range) .chart-wrap{ margin-top: 6px }
+
+  /* Verhindert Pinch-Zoom-Jitter beim Scrollen über dem Chart */
+  #chart{ touch-action: pan-y; }
+}
 }
