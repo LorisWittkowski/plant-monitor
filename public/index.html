@@ -34,20 +34,17 @@
 
           <!-- Mobile: sichtbar -->
           <button id="themeToggle" class="btn tiny" aria-label="Theme umschalten">Dark</button>
-          <button
-            id="calibBtn"
-            type="button"
-            class="btn primary hide-mobile"
-            data-action="calibrate"
-            onclick="(function(){
-              var d=document.getElementById('calibModal');
-              if(!d) return;
-              try{ d.showModal(); }catch(_){ d.setAttribute('open',''); }
-            })()"
-          >
+
+          <!-- ⚠️ Direkt mit Fallback auf die globale API -->
+          <button id="calibBtn"
+                  class="btn primary"
+                  type="button"
+                  data-action="calibrate"
+                  onclick="window.App && App.openCalib && App.openCalib()">
             Kalibrieren
           </button>
-          <button id="infoBtn" class="btn">Info</button>
+
+          <button id="infoBtn" class="btn" type="button">Info</button>
         </div>
       </div>
     </header>
@@ -70,7 +67,7 @@
       <section class="card">
         <header class="card-head">
           <h2>Pflanzendaten</h2>
-          <button id="saveInfo" class="btn primary">Speichern</button>
+          <button id="saveInfo" class="btn primary" type="button">Speichern</button>
         </header>
 
         <div class="grid2 gap">
@@ -120,9 +117,9 @@
           <h3>Historie</h3>
           <div class="head-tools">
             <div class="range" role="tablist" aria-label="Zeitraum auswählen">
-              <button class="btn seg" data-range="1h"  role="tab" aria-selected="true">Letzte Stunde</button>
-              <button class="btn seg" data-range="24h" role="tab" aria-selected="false">24 h</button>
-              <button class="btn seg" data-range="7d"  role="tab" aria-selected="false">7 Tage</button>
+              <button class="btn seg" data-range="1h"  role="tab" aria-selected="true" type="button">Letzte Stunde</button>
+              <button class="btn seg" data-range="24h" role="tab" aria-selected="false" type="button">24 h</button>
+              <button class="btn seg" data-range="7d"  role="tab" aria-selected="false" type="button">7 Tage</button>
             </div>
 
             <label class="switch" title="Fixe Skala 0–100%">
@@ -147,7 +144,6 @@
           <button class="btn icon close" onclick="this.closest('dialog').close();">✕</button>
         </header>
         <div class="modal-body">
-          <!-- Reihenfolge: Name oben, darunter Sensor-ID + Pin nebeneinander -->
           <label class="field">
             <span class="label">Name</span>
             <input id="np_name" class="input" placeholder="z. B. Balkon Tomate" />
@@ -173,7 +169,7 @@
           </div>
         </div>
         <footer class="modal-foot">
-          <button id="np_save" class="btn primary">Speichern</button>
+          <button id="np_save" class="btn primary" type="button">Speichern</button>
         </footer>
       </div>
     </dialog>
@@ -226,14 +222,47 @@
               </select>
             </label>
             <div style="display:flex; align-items:end">
-              <button id="info_pin_save" class="btn">Pin speichern</button>
+              <button id="info_pin_save" class="btn" type="button">Pin speichern</button>
             </div>
           </div>
         </div>
         <footer class="modal-foot">
-          <button id="openWipeBtn" class="btn">🧹 Historie zurücksetzen</button>
+          <button id="openWipeBtn" class="btn" type="button" data-action="wipe-open">🧹 Historie zurücksetzen</button>
           <div class="spacer"></div>
-          <button id="deletePlantBtn" class="btn danger-outline">🗑️ Pflanze löschen</button>
+          <button id="deletePlantBtn" class="btn danger-outline" type="button" data-action="plant-delete">🗑️ Pflanze löschen</button>
+        </footer>
+      </div>
+    </dialog>
+
+    <!-- Mini-Dialog: Historie zurücksetzen -->
+    <dialog id="wipeModal" class="modal">
+      <div class="modal-card">
+        <header class="modal-head">
+          <h4>Historie zurücksetzen</h4>
+          <button class="btn icon close" onclick="this.closest('dialog').close();" aria-label="Schließen">✕</button>
+        </header>
+        <div class="modal-body">
+          <p class="muted small" style="margin-top:0">
+            Wähle, welche Daten gelöscht werden sollen. Betroffen sind <strong>History</strong> und die <strong>10-Min-Aggregation</strong>.
+            Profil &amp; Kalibrierung bleiben erhalten.
+          </p>
+
+          <div class="card subtle" style="padding:12px">
+            <label class="field">
+              <span class="label">Zeitraum</span>
+              <input id="wipeRange" class="input" type="range" min="1" max="25" step="1" value="24" />
+            </label>
+            <div style="display:flex; align-items:center; gap:10px">
+              <div class="muted small">Älter als</div>
+              <div id="wipeLabel" class="mono big">24&nbsp;h</div>
+            </div>
+            <div class="muted small">
+              1–24&nbsp;h: löscht Einträge <em>älter</em> als X&nbsp;Stunden · 25&nbsp;h: <strong>Alle</strong> historischen Daten
+            </div>
+          </div>
+        </div>
+        <footer class="modal-foot">
+          <button id="wipeConfirm" class="btn primary" type="button" data-action="wipe-confirm">Zurücksetzen</button>
         </footer>
       </div>
     </dialog>
@@ -275,8 +304,8 @@
           </div>
 
           <div style="display:flex; gap:8px; margin-top:10px">
-            <button id="arduinoGenBtn" class="btn primary">Code generieren</button>
-            <button id="arduinoCopyBtn" class="btn">In Zwischenablage kopieren</button>
+            <button id="arduinoGenBtn" class="btn primary" type="button">Code generieren</button>
+            <button id="arduinoCopyBtn" class="btn" type="button">In Zwischenablage kopieren</button>
           </div>
 
           <label class="field" style="margin-top:12px">
