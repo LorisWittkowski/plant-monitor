@@ -1,218 +1,139 @@
 // file: public/assets/arduino-gen.js
-// Arduino Code Generator (UNO R4 WiFi, Multi-Sensor, HTTPS → Vercel)
-// - Rundet exakt deine "stabile" Single-Sensor-Logik auf mehrere Sensoren hoch
-// - Nutzt dieselbe WLAN-/DHCP-Logik, Median+Mean-Messung, Content-Length, Backoff
-// - Pins pro Pflanze (Sensor-ID) via UI wählbar (A0..A5), gespeichert in localStorage
+// Liest Sensoren + Profile (inkl. pin) und erzeugt einen Mehr-Sensor-Sketch.
+// Pins werden NICHT hier editiert – nur Anzeige & Generierung.
 
 (function(){
-  const $ = s => document.querySelector(s);
+  const ALLOWED_PINS = ["A0","A1","A2","A3","A4","A5"];
 
-  // DOM aus index.html
-  const modal = $("#arduinoModal");
-  const listWrap = $("#arduinoList");
-  const genBtn = $("#arduinoGenBtn");
-  const copyBtn = $("#arduinoCopyBtn");
-  const outTA = $("#arduinoCode");
-  const inSsid = $("#ard_ssid");
-  const inPass = $("#ard_pass");
-  const inHost = $("#ard_host");
-  const inToken= $("#ard_token");
-
-  // Lokale Persistenz für Pin-Zuordnung & Zugangsdaten
-  const LS_PINS  = "arduinoPins";   // { [sensorId]: "A0"|"A1"|... }
-  const LS_WIFI  = "arduinoWifi";   // { ssid, pass, host, token }
-
-  const UNO_ANALOG_PINS = ["A0","A1","A2","A3","A4","A5"];
-
-  function loadPins(){
-    try{ return JSON.parse(localStorage.getItem(LS_PINS) || "{}"); }catch{ return {}; }
+  // ---------- helpers ----------
+  async function fetchJSON(url){
+    const r = await fetch(url, { cache: "no-store" });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.status === 204 ? null : await r.json();
   }
-  function savePins(map){ localStorage.setItem(LS_PINS, JSON.stringify(map||{})); }
-
-  function loadWifi(){
-    try{ return JSON.parse(localStorage.getItem(LS_WIFI) || "{}"); }catch{ return {}; }
+  async function listSensors(){
+    const data = await fetchJSON("/api/sensors");
+    return Array.isArray(data?.sensors) ? data.sensors : [];
   }
-  function saveWifi(){
-    const data = {
-      ssid: inSsid?.value || "",
-      pass: inPass?.value || "",
-      host: inHost?.value || "",
-      token: inToken?.value || "",
-    };
-    localStorage.setItem(LS_WIFI, JSON.stringify(data));
-  }
-
-  function fmtDateTime(){
-    const d = new Date();
-    const pad = n => String(n).padStart(2,"0");
-    return `${d.getDate()}.${pad(d.getMonth()+1)}.${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-  }
-
-  function ensureModalOpen(){
-    try { modal.showModal(); }
-    catch(e){ if (!modal.open) modal.setAttribute('open',''); }
-  }
-
-  async function fetchSensors(){
+  async function getProfile(id){
     try{
-      const r = await fetch("/api/sensors",{cache:"no-store"});
-      if (!r.ok) throw 0;
-      const data = await r.json();
-      return Array.isArray(data.sensors) ? data.sensors : [];
-    }catch{
-      return [];
-    }
+      const data = await fetchJSON(`/api/plant?sensorId=${encodeURIComponent(id)}`);
+      return data?.profile || null;
+    }catch{ return null; }
   }
+  function getEl(id){ return document.getElementById(id); }
+  function getSummaryContainer(){ return getEl("arduinoSummary") || getEl("arduinoList"); }
 
-  function buildPinSelect(sensorId, current){
-    const sel = document.createElement("select");
-    sel.className = "input";
-    sel.style.maxWidth = "110px";
-    [...UNO_ANALOG_PINS, "(keiner)"].forEach(pin=>{
-      const opt = document.createElement("option");
-      opt.value = pin === "(keiner)" ? "" : pin;
-      opt.textContent = pin;
-      if (opt.value === (current||"")) opt.selected = true;
-      sel.appendChild(opt);
-    });
-    sel.addEventListener("change", ()=>{
-      const map = loadPins();
-      const v = sel.value || "";
-      if (v) map[sensorId] = v; else delete map[sensorId];
-      savePins(map);
-    });
-    return sel;
-  }
-
-  async function renderList(){
-    const sensors = await fetchSensors();  // [{id, name, calibrated}]
-    const pinMap = loadPins();
-
-    listWrap.innerHTML = "";
-    if (!sensors.length){
-      const empty = document.createElement("div");
-      empty.className = "muted small";
-      empty.textContent = "Keine Pflanzen vorhanden. Lege zuerst eine Pflanze an.";
-      listWrap.appendChild(empty);
+  // ---------- UI render ----------
+  function renderSummary(list){
+    const wrap = getSummaryContainer();
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    if (!list.length){
+      const div = document.createElement("div");
+      div.className = "card subtle";
+      div.style.padding = "10px";
+      div.textContent = "Keine Pflanzen vorhanden. Lege zuerst welche an und setze die Pins in den Pflanzen-Infos.";
+      wrap.appendChild(div);
       return;
     }
-
-    sensors.forEach(s=>{
+    list.forEach(s=>{
       const row = document.createElement("div");
       row.className = "card subtle";
-      row.style.padding = "10px 12px";
-
-      const title = document.createElement("div");
-      title.style.display = "flex";
-      title.style.justifyContent = "space-between";
-      title.style.alignItems = "center";
-      title.style.gap = "12px";
-
-      const left = document.createElement("div");
-      left.innerHTML = `
-        <div class="mono" style="font-weight:600">${s.name || s.id}</div>
-        <div class="muted small">${s.id}${s.calibrated ? " · kalibriert" : ""}</div>
-      `;
-
-      const right = document.createElement("div");
-      right.style.display = "flex";
-      right.style.gap = "8px";
-      right.style.alignItems = "center";
-
-      const label = document.createElement("span");
-      label.className = "label";
-      label.textContent = "Analog-Pin";
-
-      const sel = buildPinSelect(s.id, pinMap[s.id] || "");
-      right.appendChild(label);
-      right.appendChild(sel);
-
-      title.appendChild(left);
-      title.appendChild(right);
-      row.appendChild(title);
-      listWrap.appendChild(row);
+      row.style.padding = "10px";
+      row.innerHTML = `
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px">
+          <div>
+            <strong>${escapeHtml(s.name || s.id)}</strong>
+            <div class="muted small">
+              <span class="mono">${escapeHtml(s.id)}</span>
+            </div>
+          </div>
+          <div class="mono" title="Analog-Pin">
+            Pin: <strong>${escapeHtml(s.pin || "—")}</strong>
+          </div>
+        </div>`;
+      wrap.appendChild(row);
     });
   }
 
-  function buildSensorArrayCode(){
-    const map = loadPins(); // { id: "A0", ... }
-    const entries = Object.entries(map)
-      .filter(([,pin])=> !!pin)
-      .map(([id,pin])=> `  { "${id}", ${pin} }`);
-    if (!entries.length) return { arrayCode: "", countCode: "0" };
-    const arrayCode = `SensorCfg SENSORS[] = {\n${entries.join(",\n")}\n};`;
-    const countCode = `sizeof(SENSORS)/sizeof(SENSORS[0])`;
-    return { arrayCode, countCode };
+  function escapeHtml(str){
+    return String(str ?? "")
+      .replace(/&/g,"&amp;")
+      .replace(/</g,"&lt;")
+      .replace(/>/g,"&gt;")
+      .replace(/"/g,"&quot;");
   }
 
-  function sanitize(s){
-    return (s||"").replace(/\r\n/g,"\n");
+  // ---------- data collect ----------
+  async function collectSensorsWithPins(){
+    const sensors = await listSensors();           // [{id,name,calibrated}, ...]
+    const withProfiles = await Promise.all(
+      sensors.map(async s=>{
+        const p = await getProfile(s.id);          // may contain { pin, ... }
+        const pin = p?.pin || null;
+        return { id: s.id, name: s.name || p?.name || s.id, pin };
+      })
+    );
+    // Reihenfolge stabil lassen, aber ungültige Pins markieren
+    return withProfiles;
   }
 
-  function makeSketch(){
-    // Zugangsdaten speichern (UX)
-    saveWifi();
-    const wifi = loadWifi();
+  // ---------- sketch gen ----------
+  function genSensorsArray(sensors){
+    // nur valide Pins zulassen
+    const withPin = sensors.filter(s => ALLOWED_PINS.includes(s.pin || ""));
+    const lines = withPin.map(s => `  { "${s.id}", ${s.pin} }`);
+    return { lines, count: withPin.length, skipped: sensors.length - withPin.length };
+  }
 
-    const { arrayCode, countCode } = buildSensorArrayCode();
-    if (!arrayCode){
-      return `// Bitte mindestens einer Pflanze einen Analog-Pin zuweisen (A0..A5).`;
-    }
+  function genSketch(sensors, ssid, pass, host, token){
+    const now = new Date();
+    const ts = now.toLocaleString();
+    const { lines, count } = genSensorsArray(sensors);
 
-    const now = fmtDateTime();
-    const ssid  = sanitize(wifi.ssid)  || "<WIFI_SSID>";
-    const pass  = sanitize(wifi.pass)  || "<WIFI_PASS>";
-    const host  = sanitize(wifi.host)  || "<YOUR_VERCEL_HOST>";
-    const token = sanitize(wifi.token) || "<INGEST_TOKEN>";
-
-    // ——— Exakt deine stabile Logik, hochskaliert auf mehrere Sensoren ———
-    const code = `/**
+    return `/**
  * UNO R4 WiFi – Multi Soil Monitor (HTTPS → Vercel)
- * Auto-generiert von Plant Monitor – ${now}
+ * Auto-generiert von Plant Monitor – ${ts}
  *
  * Bitte trage unten SSID, Passwort, Host und Ingest-Token ein.
- * Die Sensorliste und Pins sind aus deiner Website übernommen.
+ * Die Sensorliste und Pins stammen aus den Pflanzen-Infos der Website.
  */
 
 #include <WiFiS3.h>
 
 // ── YOUR SETTINGS ────────────────────────────────────────────────────────────
-const char* WIFI_SSID    = "${ssid}";
-const char* WIFI_PASS    = "${pass}";
-const char* HOST         = "${host}";            // ohne https://
+const char* WIFI_SSID    = "${ssid || "<WIFI_SSID>"}";
+const char* WIFI_PASS    = "${pass || "<WIFI_PASS>"}";
+const char* HOST         = "${host || "<YOUR_VERCEL_HOST>"}";   // ohne https://
 const int   HTTPS_PORT   = 443;
 const char* API_PATH     = "/api/soil";
-const char* INGEST_TOKEN = "${token}";           // Vercel ENV
+const char* INGEST_TOKEN = "${token || "<INGEST_TOKEN>"}";
 
-// ── SENSOR-ZUORDNUNG ────────────────────────────────────────────────────────
+// ── TIMING ───────────────────────────────────────────────────────────────────
+const unsigned long POST_INTERVAL_MS = 5000; // Runde-zu-Runde (pro Sensor round-robin)
+const unsigned long CONNECT_WAIT_MS  = 8000;
+const unsigned long DHCP_WAIT_MS     = 8000;
+const unsigned long HTTPS_READ_MS    = 5000;
+
+// ── SENSOR LISTE (aus Website) ──────────────────────────────────────────────
 struct SensorCfg { const char* id; int pin; };
-${arrayCode}
-const int SENSOR_COUNT = ${countCode};
+SensorCfg SENSORS[] = {
+${lines.join(",\n")}
+};
+const int SENSOR_COUNT = ${count};
 
-// ── TIMING (identisch zur stabilen Vorlage) ─────────────────────────────────
-const unsigned long POST_INTERVAL_MS   = 5000;   // pro Loop 1 Sensor
-const unsigned long RETRY_MIN_MS       = 4000;   // Backoff start
-const unsigned long RETRY_MAX_MS       = 30000;  // Backoff Kappe
-const unsigned long CONNECT_WAIT_MS    = 8000;   // pro Verbindungsversuch
-const unsigned long DHCP_WAIT_MS       = 8000;   // auf gültige IP warten
-const unsigned long HTTPS_READ_MS      = 5000;   // Statuszeile lesen
-
-// ── NET / STATE ─────────────────────────────────────────────────────────────
+// ── NET ─────────────────────────────────────────────────────────────────────
 WiFiSSLClient net;
-unsigned long nextPostAt   = 0;
-unsigned long retryDelayMs = 0;
-int sensorIndex            = 0;   // round-robin
 
-// ── HELPERS (wie stabile Vorlage) ───────────────────────────────────────────
+// ── HELPERS ─────────────────────────────────────────────────────────────────
 static inline bool hasValidIP(IPAddress ip){
   return !(ip[0]==0 && ip[1]==0 && ip[2]==0 && ip[3]==0);
 }
-
 void waitForDHCP(){
   unsigned long until = millis() + DHCP_WAIT_MS;
   while (millis() < until && !hasValidIP(WiFi.localIP())) delay(200);
 }
-
 void ensureWiFi() {
   if (WiFi.status() == WL_CONNECTED && hasValidIP(WiFi.localIP())) return;
 
@@ -235,7 +156,7 @@ void ensureWiFi() {
 }
 
 // stabile Messung: Median (robust) + kleiner Mittelwert-Anteil
-int readSoilRawAtPin(uint8_t pin, uint8_t n=7){
+int readSoilRawOn(uint8_t pin, uint8_t n=7){
   if(!(n&1)) n++; if(n>15) n=15;
   int b[15];
   for(uint8_t i=0;i<n;i++){ b[i]=analogRead(pin); delayMicroseconds(200); }
@@ -280,96 +201,138 @@ bool postRawFor(const char* sensorId, int raw) {
   return (code >= 200 && code < 300);
 }
 
-void scheduleNext(bool success){
-  if (success) {
-    retryDelayMs = 0;
-    nextPostAt = millis() + POST_INTERVAL_MS;
-  } else {
-    retryDelayMs = (retryDelayMs == 0) ? RETRY_MIN_MS : min(retryDelayMs * 2, RETRY_MAX_MS);
-    nextPostAt = millis() + retryDelayMs;
-  }
-}
-
 // ── ARDUINO LIFECYCLE ───────────────────────────────────────────────────────
+unsigned long nextSendAt = 0;
+int sensorIndex = 0;
+
 void setup() {
   Serial.begin(115200);
   delay(200);
   Serial.println("Multi-Soil → Vercel (clean)");
   for (int i=0; i<SENSOR_COUNT; i++){ pinMode(SENSORS[i].pin, INPUT); }
-
-  ensureWiFi();                 // ruhig verbinden
-  nextPostAt = millis() + 1000; // erster Post leicht verzögert
+  ensureWiFi();
+  nextSendAt = millis() + 1000;
 }
 
 void loop() {
-  // Netz pflegen
   if (!(WiFi.status() == WL_CONNECTED && hasValidIP(WiFi.localIP()))) {
     ensureWiFi();
   }
 
-  unsigned long now = millis();
-  if (now >= nextPostAt && SENSOR_COUNT > 0) {
-    const SensorCfg &s = SENSORS[sensorIndex];
-    int raw = readSoilRawAtPin(s.pin);
-    bool ok = postRawFor(s.id, raw);
+  if (millis() >= nextSendAt) {
+    if (SENSOR_COUNT > 0) {
+      const SensorCfg &s = SENSORS[sensorIndex];
+      int raw = readSoilRawOn(s.pin);
+      bool ok = postRawFor(s.id, raw);
 
-    // kurze, klare Logzeile pro Zyklus
-    Serial.print("["); Serial.print(s.id); Serial.print("] ");
-    Serial.print("PIN="); Serial.print(s.pin);
-    Serial.print(" RAW="); Serial.print(raw);
-    Serial.print(" POST="); Serial.println(ok ? "OK" : "FAIL");
+      Serial.print("["); Serial.print(s.id); Serial.print("] ");
+      Serial.print("PIN="); Serial.print(s.pin);
+      Serial.print(" RAW="); Serial.print(raw);
+      Serial.print(" POST="); Serial.println(ok ? "OK" : "FAIL");
 
-    // immer weiter rotieren, damit nichts "hängen" bleibt
-    sensorIndex = (sensorIndex + 1) % SENSOR_COUNT;
-
-    scheduleNext(ok);
+      sensorIndex = (sensorIndex + 1) % SENSOR_COUNT;  // round-robin
+    }
+    nextSendAt = millis() + POST_INTERVAL_MS;
   }
 
   delay(5);
 }
 `;
-    return code;
+  }
+
+  // ---------- events / wiring ----------
+  function loadSavedCreds(){
+    return {
+      ssid: localStorage.getItem("ard_ssid") || "",
+      pass: localStorage.getItem("ard_pass") || "",
+      host: localStorage.getItem("ard_host") || "",
+      token: localStorage.getItem("ard_token") || "",
+    };
+  }
+  function saveCreds(c){
+    if (!c) return;
+    if ("ssid" in c)  localStorage.setItem("ard_ssid",  c.ssid || "");
+    if ("pass" in c)  localStorage.setItem("ard_pass",  c.pass || "");
+    if ("host" in c)  localStorage.setItem("ard_host",  c.host || "");
+    if ("token" in c) localStorage.setItem("ard_token", c.token || "");
   }
 
   async function open(){
-    // Prefill WLAN-Felder aus LS
-    const wifi = loadWifi();
-    if (inSsid) inSsid.value = wifi.ssid || "";
-    if (inPass) inPass.value = wifi.pass || "";
-    if (inHost) inHost.value = wifi.host || "";
-    if (inToken)inToken.value= wifi.token|| "";
-
-    await renderList();
-    ensureModalOpen();
-  }
-
-  function generate(){
-    const code = makeSketch();
-    outTA.value = code;
-    // Auto-Resize
-    outTA.style.height = "auto";
-    outTA.style.height = Math.max(280, outTA.scrollHeight + 8) + "px";
-  }
-
-  async function copyCode(){
+    const modal = getEl("arduinoModal");
+    if (!modal) return;
+    // 1) Liste laden
+    let sensorList = [];
     try{
-      await navigator.clipboard.writeText(outTA.value || "");
-      copyBtn.textContent = "Kopiert ✓";
-      setTimeout(()=>{ copyBtn.textContent = "In Zwischenablage kopieren"; }, 1200);
-    }catch{
-      copyBtn.textContent = "Kopieren fehlgeschlagen";
-      setTimeout(()=>{ copyBtn.textContent = "In Zwischenablage kopieren"; }, 1500);
+      sensorList = await collectSensorsWithPins();
+    }catch(e){
+      console.error(e);
+      sensorList = [];
     }
+    renderSummary(sensorList);
+
+    // 2) Felder füllen
+    const { ssid, pass, host, token } = loadSavedCreds();
+    const fSsid  = getEl("ard_ssid");
+    const fPass  = getEl("ard_pass");
+    const fHost  = getEl("ard_host");
+    const fToken = getEl("ard_token");
+    if (fSsid)  fSsid.value  = ssid;
+    if (fPass)  fPass.value  = pass;
+    if (fHost)  fHost.value  = host;
+    if (fToken) fToken.value = token;
+
+    // 3) Buttons verkabeln
+    const btnGen  = getEl("arduinoGenBtn");
+    const btnCopy = getEl("arduinoCopyBtn");
+    const out     = getEl("arduinoCode");
+
+    btnGen?.addEventListener("click", async ()=>{
+      // Creds live lesen & speichern
+      const creds = {
+        ssid:  fSsid?.value || "",
+        pass:  fPass?.value || "",
+        host:  fHost?.value || "",
+        token: fToken?.value || "",
+      };
+      saveCreds(creds);
+
+      // Frische Sensorliste holen (falls zwischenzeitlich geändert)
+      let current = [];
+      try { current = await collectSensorsWithPins(); } catch {}
+      // Hinweis, wenn keiner einen gültigen Pin hat
+      const validCount = current.filter(s => ALLOWED_PINS.includes(s.pin || "")).length;
+      if (!validCount){
+        alert("Es sind (noch) keine gültigen Pins gesetzt. Öffne die Pflanzen-Infos und wähle A0–A5.");
+      }
+      const code = genSketch(current, creds.ssid, creds.pass, creds.host, creds.token);
+      if (out) { out.value = code; autoGrow(out); out.scrollTop = 0; }
+    }, { once:false });
+
+    btnCopy?.addEventListener("click", async ()=>{
+      if (!out?.value) return;
+      try{
+        await navigator.clipboard.writeText(out.value);
+        btnCopy.textContent = "Kopiert ✓";
+        setTimeout(()=>{ btnCopy.textContent = "In Zwischenablage kopieren"; }, 900);
+      }catch{
+        // Fallback
+        out.select(); document.execCommand("copy");
+        btnCopy.textContent = "Kopiert ✓";
+        setTimeout(()=>{ btnCopy.textContent = "In Zwischenablage kopieren"; }, 900);
+      }
+    }, { once:false });
+
+    // 4) öffnen
+    try{ modal.showModal(); }catch{ modal.setAttribute("open",""); }
   }
 
-  // Events
-  genBtn?.addEventListener("click", generate);
-  copyBtn?.addEventListener("click", copyCode);
-  inSsid?.addEventListener("change", saveWifi);
-  inPass?.addEventListener("change", saveWifi);
-  inHost?.addEventListener("change", saveWifi);
-  inToken?.addEventListener("change", saveWifi);
+  function autoGrow(textarea){
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = (textarea.scrollHeight + 2) + "px";
+  }
 
   // Expose
-  window.ArduinoGen = { open, generate };
+  window.ArduinoGen = { open };
+
 })();

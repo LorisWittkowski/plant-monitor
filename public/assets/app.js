@@ -37,9 +37,9 @@ const els = {
   plantList: $("#plantList"),
   addPlantBtn: $("#addPlantBtn"),
   newPlantModal: $("#newPlantModal"),
-  np_id: $("#np_id"), np_name: $("#np_name"), np_save: $("#np_save"),
+  np_id: $("#np_id"), np_name: $("#np_name"), np_pin: $("#np_pin"), np_save: $("#np_save"),
 
-  // Info + Wipe + Arduino
+  // Info + Wipe
   infoBtn: $("#infoBtn"),
   arduinoBtn: $("#arduinoBtn"),
   infoModal: $("#infoModal"),
@@ -49,6 +49,8 @@ const els = {
   info_updated: $("#info_updated"),
   info_counts: $("#info_counts"),
   info_size: $("#info_size"),
+  info_pin: $("#info_pin"),
+  info_pin_save: $("#info_pin_save"),
   deletePlantBtn: $("#deletePlantBtn"),
   openWipeBtn: $("#openWipeBtn"),
   wipeModal: $("#wipeModal"),
@@ -56,6 +58,8 @@ const els = {
   wipeLabel: $("#wipeLabel"),
   wipeConfirm: $("#wipeConfirm"),
 };
+
+const ALLOWED_PINS = ["A0","A1","A2","A3","A4","A5"];
 
 // ==== Theme ====
 (function initTheme(){
@@ -82,28 +86,18 @@ els.themeToggle?.addEventListener("click", ()=>{
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 const cssVar = (name, fallback) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 
-// FIX: korrektes Delta (rawWet - rawDry) + NaN/Inf-Schutz
 const asPercent = raw => {
   const r = Number(raw);
   if (!Number.isFinite(r)) return 0;
-
   const hasCfg = config
     && Number.isFinite(config.rawDry)
     && Number.isFinite(config.rawWet)
     && config.rawDry !== config.rawWet;
-
-  let p;
-  if (hasCfg) {
-    const denom = (config.rawWet - config.rawDry);
-    p = 100 * (r - config.rawDry) / denom;
-  } else {
-    p = 100 * (r / RAW_MAX);
-  }
-
+  let p = hasCfg ? 100 * (r - config.rawDry) / (config.rawWet - config.rawDry)
+                 : 100 * (r / RAW_MAX);
   if (!Number.isFinite(p)) p = 0;
   return clamp(p, 0, 100);
 };
-
 function autosize(el){ if (!el) return; el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }
 function bindAutosize(el){
   if (!el || el._autosizeBound) return;
@@ -119,7 +113,6 @@ function resetLiveUI(){
   els.ts.textContent = "—";
   currentDisplayedPercent = null;
 }
-const sleep = (ms)=>new Promise(r=>setTimeout(r, ms));
 
 // ==== Live UI ====
 function updateLive(raw, atIso){
@@ -324,11 +317,11 @@ async function readCurrentRaw(){
 }
 function safeShowModal(dlg){
   try { dlg.showModal(); }
-  catch(e){ if (!dlg.open) dlg.setAttribute('open',''); } // Fallback, verhindert „Freeze“-Gefühl
+  catch(e){ if (!dlg.open) dlg.setAttribute('open',''); }
 }
 function closeSidebar(){ els.sidebar?.classList.remove('open'); els.sidebar?.setAttribute('aria-hidden','true'); els.sidebarOverlay.hidden = true; }
 function openCalibModal(){
-  closeSidebar(); // Overlay weg → verhindert Klick-Blocker
+  closeSidebar();
   els.calibPlantName.textContent = plantProfile?.name || SENSOR_ID;
   renderCalibSummary();
   els.dryInput.value = (config?.rawDry ?? "");
@@ -424,7 +417,6 @@ async function loadSensors(){
       fetchPlant();
     } else {
       resetLiveUI(); setSeries([]); plantProfile=null; fillInfoUI();
-      // Optional: Empty State
       const empty = document.createElement('div');
       empty.className = 'plant-item';
       empty.style.cursor = 'default';
@@ -434,23 +426,33 @@ async function loadSensors(){
   } catch (e) { console.error(e); }
 }
 
-// Neue Pflanze
+// Neue Pflanze (mit Pin)
 els.addPlantBtn?.addEventListener("click", ()=> els.newPlantModal?.showModal());
 els.np_save?.addEventListener("click", async ()=>{
   const id = els.np_id?.value?.trim();
   const name = els.np_name?.value?.trim();
+  const pin = els.np_pin?.value?.trim();
   if (!id) { alert("Bitte Sensor-ID eingeben!"); return; }
+  if (!pin || !ALLOWED_PINS.includes(pin)) { alert("Bitte gültigen Analog-Pin wählen (A0–A5)."); return; }
+
   try{
+    // 1) Registrierung (falls dein /api/register vorhanden ist)
     const r = await fetch("/api/register",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ sensorId:id, name })});
     if (!r.ok) { const txt = await r.text().catch(()=> ""); alert(`Fehler: ${r.status} ${txt}`); return; }
-    els.newPlantModal?.close(); els.np_id.value = ""; els.np_name.value = "";
+
+    // 2) Profil inkl. Pin setzen
+    await fetch("/api/plant",{ method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ sensorId:id, profile:{ name: name || null, pin } })
+    });
+
+    els.newPlantModal?.close(); els.np_id.value = ""; els.np_name.value = ""; els.np_pin.value = "";
     await loadSensors(); SENSOR_ID = id; localStorage.setItem("sensorId", id);
     fetchSeries(currentRange); fetchPlant();
-  }catch(e){ alert("Fehler beim Anlegen!"); }
+  }catch(e){ console.error(e); alert("Fehler beim Anlegen!"); }
 });
 
 // ==== Info modal + Wipe + Delete ====
-// „Info“-Freeze-Fix: Sidebar immer schließen & safeShowModal
+// Info öffnen (inkl. Pin anzeigen)
 async function openInfo(){
   if (!SENSOR_ID) return;
   closeSidebar();
@@ -466,6 +468,10 @@ async function openInfo(){
     els.info_counts.textContent = `${c.history ?? 0} / ${c.agg10m ?? 0} / ${c.notes ?? 0}`;
     const b = data?.bytes || {};
     els.info_size.textContent = `${b?.total ? Math.round(b.total/1024) : 0} KB (gesamt)`;
+
+    // Pin vorselektieren
+    const pin = data?.profile?.pin || plantProfile?.pin || "";
+    if (els.info_pin) els.info_pin.value = ALLOWED_PINS.includes(pin) ? pin : "";
   }catch{
     els.info_sensorId.textContent = SENSOR_ID;
     els.info_name.textContent = plantProfile?.name || SENSOR_ID;
@@ -473,10 +479,26 @@ async function openInfo(){
     els.info_updated.textContent = "—";
     els.info_counts.textContent = "—";
     els.info_size.textContent = "—";
+    if (els.info_pin) els.info_pin.value = plantProfile?.pin || "";
   }
   safeShowModal(els.infoModal);
 }
 els.infoBtn?.addEventListener("click", openInfo, { passive:true });
+
+// Pin speichern im Info-Dialog
+els.info_pin_save?.addEventListener("click", async ()=>{
+  if (!SENSOR_ID) return;
+  const pin = els.info_pin?.value?.trim();
+  if (!pin || !ALLOWED_PINS.includes(pin)) { alert("Bitte gültigen Analog-Pin wählen (A0–A5)."); return; }
+  try{
+    const r = await fetch("/api/plant",{ method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ sensorId: SENSOR_ID, profile:{ pin } })
+    });
+    if (!r.ok){ const t = await r.text().catch(()=> ""); throw new Error(`${r.status} ${t}`); }
+    await fetchPlant(); // pakt Profil neu
+    alert("Pin gespeichert.");
+  }catch(e){ console.error(e); alert("Pin konnte nicht gespeichert werden."); }
+});
 
 // Wipe-Dialog
 function renderWipeLabel(){
@@ -538,7 +560,7 @@ async function deleteCurrentPlant(){
   if (btn){ btn.disabled = true; btn.textContent = "Lösche…"; }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(()=>controller.abort(), 10000); // 10s Timeout
+  const timeoutId = setTimeout(()=>controller.abort(), 10000);
 
   try{
     const r = await fetch("/api/delete-plant", {
@@ -586,11 +608,10 @@ async function deleteCurrentPlant(){
 }
 els.deletePlantBtn?.addEventListener("click", deleteCurrentPlant);
 
-// === Arduino Generator (lazy load) ===
+// === Arduino Generator (lazy load, nur Anzeige/Generierung) ===
 async function openArduinoGenerator(){
-  // loadScript kommt aus index.html (global)
   if (!window.ArduinoGen) {
-    await loadScript("/assets/arduino-gen.js");
+    await (function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.defer=true; s.onload=res; s.onerror=rej; document.head.appendChild(s); });})("/assets/arduino-gen.js");
   }
   window.ArduinoGen.open();
 }

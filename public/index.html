@@ -13,7 +13,7 @@
     <h2 class="brand" style="margin-bottom:12px">🔒 Plant Monitor Login</h2>
     <label class="field">
       <span class="label">PIN</span>
-      <input id="pinInput" class="input" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN eingeben" />
+      <input id="pinInput" class="input" type="password" inputmode="numeric" placeholder="PIN eingeben" />
     </label>
     <div style="display:flex; gap:8px; align-items:center; margin-top:10px">
       <button id="pinBtn" class="btn primary">Login</button>
@@ -29,7 +29,6 @@
         <button id="menuBtn" class="btn tiny icon-left" aria-label="Seitenmenü öffnen">☰</button>
         <h1 class="brand">Plant Monitor</h1>
         <div class="actions">
-          <!-- Arduino Button -->
           <button id="arduinoBtn" class="btn tiny" title="Arduino-Code Generator">Arduino</button>
           <button id="logoutBtn" class="btn tiny" aria-label="Logout">Logout</button>
           <button id="themeToggle" class="btn tiny" aria-label="Theme umschalten">Dark</button>
@@ -131,17 +130,33 @@
       <div class="modal-card">
         <header class="modal-head">
           <h4>Neue Pflanze anlegen</h4>
-          <button class="btn icon close" onclick="this.closest('dialog').close();" aria-label="Schließen">✕</button>
+          <button class="btn icon close" onclick="this.closest('dialog').close();">✕</button>
         </header>
         <div class="modal-body">
+          <!-- Reihenfolge: Name oben, darunter Sensor-ID + Pin nebeneinander -->
           <label class="field">
-            <span class="label">Sensor-ID</span>
-            <input id="np_id" class="input" placeholder="z. B. soil-2" />
-          </label>
-          <label class="field">
-            <span class="label">Pflanzenname</span>
+            <span class="label">Name</span>
             <input id="np_name" class="input" placeholder="z. B. Balkon Tomate" />
           </label>
+
+          <div class="grid2 gap">
+            <label class="field">
+              <span class="label">Sensor-ID</span>
+              <input id="np_id" class="input" placeholder="z. B. soil-2" />
+            </label>
+            <label class="field">
+              <span class="label">Analog-Pin (UNO R4)</span>
+              <select id="np_pin" class="input">
+                <option value="">— bitte wählen —</option>
+                <option value="A0">A0</option>
+                <option value="A1">A1</option>
+                <option value="A2">A2</option>
+                <option value="A3">A3</option>
+                <option value="A4">A4</option>
+                <option value="A5">A5</option>
+              </select>
+            </label>
+          </div>
         </div>
         <footer class="modal-foot">
           <button id="np_save" class="btn primary">Speichern</button>
@@ -149,7 +164,7 @@
       </div>
     </dialog>
 
-    <!-- Info & Verwaltung -->
+    <!-- Info & Verwaltung (Pin hier einstellbar) -->
     <dialog id="infoModal" class="modal">
       <div class="modal-card">
         <header class="modal-head">
@@ -174,6 +189,7 @@
               <span class="label">Zuletzt geändert</span>
               <div id="info_updated">—</div>
             </div>
+
             <div class="field">
               <span class="label">Einträge (History / 10-Min / Notizen)</span>
               <div id="info_counts">—</div>
@@ -181,6 +197,23 @@
             <div class="field">
               <span class="label">Datenmenge (ca.)</span>
               <div id="info_size">—</div>
+            </div>
+
+            <!-- Pin-Einstellung direkt im Info-Dialog -->
+            <label class="field">
+              <span class="label">Analog-Pin (UNO R4)</span>
+              <select id="info_pin" class="input">
+                <option value="">— bitte wählen —</option>
+                <option value="A0">A0</option>
+                <option value="A1">A1</option>
+                <option value="A2">A2</option>
+                <option value="A3">A3</option>
+                <option value="A4">A4</option>
+                <option value="A5">A5</option>
+              </select>
+            </label>
+            <div style="display:flex; align-items:end">
+              <button id="info_pin_save" class="btn">Pin speichern</button>
             </div>
           </div>
         </div>
@@ -277,7 +310,7 @@
       </div>
     </dialog>
 
-    <!-- 🛠️ Arduino Code Generator -->
+    <!-- 🛠️ Arduino Code Generator (read-only Pins) -->
     <dialog id="arduinoModal" class="modal">
       <div class="modal-card">
         <header class="modal-head">
@@ -286,11 +319,11 @@
         </header>
         <div class="modal-body">
           <p class="muted small" style="margin-top:0">
-            Ordne jeder Pflanze einen <strong>Analog-Pin</strong> zu. Danach generierst du einen
-            <strong>kopierfertigen</strong> Sketch (Mehr-Sensor-Support, HTTPS-POST).
+            Die Analog-Pins werden in den <strong>Pflanzen-Infos</strong> gesetzt. Hier siehst du nur die aktuelle Zuordnung.
+            Danach erzeugst du einen <strong>kopierfertigen</strong> Sketch (Mehr-Sensor, HTTPS-POST).
           </p>
 
-          <div id="arduinoList" class="stack" style="margin-top:8px"></div>
+          <div id="arduinoSummary" class="stack" style="margin-top:8px"></div>
 
           <div class="card subtle" style="padding:12px; margin-top:12px">
             <div class="grid2 gap">
@@ -329,7 +362,7 @@
 
   <!-- 🔧 Login-/Unlock-Logik + Lazy-Loading -->
   <script>
-    // PIN = "water" (du kannst USE_HASH=true + PIN_HASH nutzen)
+    // PIN = "water" (SHA-256)
     const USE_HASH = false;
     const PIN_PLAINTEXT = "water";
     const PIN_HASH = "3ad843de61d1d6d13b3ee863d07be4c6569d7b0c3f9cfdfad3a86e0d94369a6a";
