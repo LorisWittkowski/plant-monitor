@@ -1,5 +1,3 @@
-/* file: public/assets/style.css */
-
 /* ===== Theme Vars ===== */
 :root{
   --bg:#f5f6f7;
@@ -16,20 +14,6 @@
   --danger:#d33;
   --danger-weak:#f7d8d8;
   --ok:#1a7f37;
-
-  /* Spacing scale */
-  --space-1:4px;
-  --space-2:8px;
-  --space-3:12px;
-  --space-4:16px;
-  --space-5:20px;
-  --space-6:24px;
-
-  /* iOS safe-area */
-  --safe-top: env(safe-area-inset-top);
-  --safe-left: env(safe-area-inset-left);
-  --safe-right: env(safe-area-inset-right);
-  --safe-bottom: env(safe-area-inset-bottom);
 }
 :root[data-theme="dark"]{
   --bg:#121416;
@@ -49,13 +33,12 @@
 
 /* ===== Base ===== */
 *{ box-sizing:border-box }
-html, body{ height:100%; -webkit-text-size-adjust:100% }
+html, body{ height:100% }
 body{
   margin:0;
   font:16px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   background:var(--bg);
   color:var(--fg);
-  overflow-x:hidden; /* keine horizontale Scrollbar */
 }
 a{ color:inherit; text-decoration:none }
 .text-danger{ color:var(--danger) }
@@ -64,21 +47,25 @@ a{ color:inherit; text-decoration:none }
 .big{ font-size:22px }
 .muted{ color:var(--muted) }
 
+/* ===== Utility ===== */
+.hide-mobile{ display:inline-flex }
+.safe-top{ padding-top: max(0px, env(safe-area-inset-top)) }
+.safe-bottom{ padding-bottom: max(0px, env(safe-area-inset-bottom)) }
+
 /* ===== Containers ===== */
-.container{ max-width:1100px; margin:0 auto; padding:16px 16px }
+.container{ max-width:1100px; margin:0 auto; padding:16px }
 .stack > *{ margin-bottom:16px }
 
-/* ===== Topbar (sticky + safe area) ===== */
+/* ===== Topbar (sticky) ===== */
 .topbar{
   position: sticky;
   top: 0;
-  z-index: 100;  /* under sidebar(120), over content */
+  z-index: 100;
   background: var(--bg);
   border-bottom: 1px solid var(--stroke);
   color: var(--fg);
-  padding-top: max(0px, var(--safe-top));
 }
-.topbar-inner{ display:flex; justify-content:space-between; align-items:center; gap:8px }
+.topbar-inner{ display:flex; justify-content:space-between; align-items:center }
 
 /* Brand / Header */
 .brand{
@@ -86,8 +73,11 @@ a{ color:inherit; text-decoration:none }
   font-weight:600;
   letter-spacing:-0.01em;
   margin:0;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
-.actions{ display:flex; gap:8px; align-items:center; flex-wrap:nowrap }
+.actions{ display:flex; gap:8px }
 
 /* ===== Cards ===== */
 .card{
@@ -134,7 +124,7 @@ select.select{ background-image: none }
   border-radius:14px;
   cursor:pointer;
   transition:filter .15s ease, background .15s ease, color .15s ease, border-color .15s ease;
-  touch-action: manipulation;
+  min-height:40px;
 }
 .btn:hover{ filter:brightness(1.04) }
 .btn.primary{ background:var(--fg); color:var(--panel); border-color:var(--fg) }
@@ -176,7 +166,7 @@ select.select{ background-image: none }
 
 /* ===== Chart ===== */
 .chart-wrap{ position:relative; height:300px }
-@media (max-width:640px){ .chart-wrap{ height:220px } }
+@media (max-width:640px){ .chart-wrap{ height:240px } }
 
 /* ===== Textarea ===== */
 .textarea-auto{
@@ -193,14 +183,12 @@ textarea[readonly]{ opacity:.95; }
 .modal-card{
   background:var(--panel); color:var(--fg);
   border:1px solid var(--stroke); border-radius:20px;
-  width:min(840px,92vw); max-height: min(80vh, 880px);
-  box-shadow:var(--shadow); overflow:hidden;
-  display:flex; flex-direction:column;
+  width:min(840px,92vw); box-shadow:var(--shadow); overflow:hidden;
 }
 .modal-head{ display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--stroke) }
 .modal-head h4{ margin:0 }
 .modal-head .close{ margin-left:auto }
-.modal-body{ padding:14px; overflow:auto }
+.modal-body{ padding:14px }
 .modal-foot{ display:flex; align-items:center; gap:8px; padding:12px 14px; border-top:1px solid var(--stroke) }
 .modal-foot .spacer{ flex:1 }
 
@@ -218,7 +206,7 @@ textarea[readonly]{ opacity:.95; }
   border-radius:12px; margin-top:12px; background:var(--panel-tint)
 }
 
-/* ===== Sidebar (z-index stack fixed) ===== */
+/* ===== Sidebar ===== */
 .sidebar{
   position: fixed;
   z-index: 120;
@@ -231,7 +219,6 @@ textarea[readonly]{ opacity:.95; }
   transform: translateX(-100%);
   transition: transform .26s cubic-bezier(.2,.7,.2,1);
   display: flex; flex-direction: column;
-  padding-top: max(0px, var(--safe-top));
 }
 .sidebar.open{ transform: translateX(0) }
 
@@ -240,6 +227,7 @@ textarea[readonly]{ opacity:.95; }
   padding:12px 14px; border-bottom:1px solid var(--stroke)
 }
 .sidebar-foot{ margin-top:auto; padding:12px 14px; border-top:1px solid var(--stroke) }
+
 .sidebar-overlay{
   position: fixed; inset: 0;
   z-index: 110;
@@ -250,7 +238,9 @@ textarea[readonly]{ opacity:.95; }
   padding:8px;
   display:flex; flex-direction:column; gap:6px;
   overflow:auto;
+  -webkit-overflow-scrolling: touch;
 }
+
 .plant-item{
   display:flex; align-items:center; justify-content:space-between; gap:8px;
   border:1px solid var(--stroke);
@@ -285,101 +275,62 @@ textarea[readonly]{ opacity:.95; }
   overflow:auto;
 }
 
-/* ===== Tablet Tweaks (≤ 900px) ===== */
-@media (max-width: 900px){
-  .container{ padding-left:12px; padding-right:12px }
-  .brand{ font-size:22px }
-  .live-left{ min-width:120px }
-}
-
-/* ===== Mobile Layout (≤ 640px) ===== */
+/* ===== Responsive: Mobile Polishing (≤ 640px) ===== */
 @media (max-width: 640px){
-  /* Container padding + safe bottom to avoid home indicator */
-  .container{ padding:12px 12px max(12px, var(--safe-bottom)) }
+  html, body{ overscroll-behavior-y:none }
+  .container{ padding:12px 12px max(12px, env(safe-area-inset-bottom)) }
 
-  /* Topbar: Wrap ohne horizontales Scrollen */
+  /* Topbar: 3-Spalten-Grid → kein Umbruch, keine Scrollerei */
+  .topbar{ padding-top: env(safe-area-inset-top); }
   .topbar-inner{
-    display:flex;
-    flex-wrap: wrap;             /* umbrechen erlaubt */
-    align-items: center;
-    gap: 8px;
-    padding-left: 8px;
-    padding-right: 8px;
+    display:grid;
+    grid-template-columns: 44px 1fr auto;
+    align-items:center;
+    gap:8px;
+    padding:8px 8px;
   }
+  .topbar-inner > #menuBtn{ grid-column:1 }
   .brand{
-    flex: 1 0 100%;              /* volle Breite, eigene Zeile */
+    grid-column:2;
     font-size:20px;
     line-height:1.2;
-    margin-top:2px;
+    margin:0;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
   }
-  /* Menübutton bleibt links oben */
-  #menuBtn{ order: 0 }
-
-  /* Actions umbrechen statt scrollen */
   .actions{
-    order: 3;                    /* unter Brand */
-    width: 100%;
+    grid-column:3;
     display:flex;
-    flex-wrap: wrap;
-    gap: 6px 6px;
-    overflow: visible;           /* keine Scrollleiste */
-    padding-bottom: 0;
+    gap:6px;
+    align-items:center;
+    flex-wrap:nowrap;
+    overflow:hidden;
   }
-  .actions .btn{
-    flex: 1 1 auto;
-    min-width: calc(50% - 6px);  /* zwei Spalten */
-  }
-  .actions .btn.icon,
-  .actions .btn.tiny{
-    min-width: 0;
-    flex: 0 1 auto;              /* kleine Buttons dürfen schmal sein */
-  }
-  .btn.tiny{ padding:7px 9px; font-size:12px }
+  .actions .btn{ white-space:nowrap; flex:0 1 auto; max-width:46vw }
+  .actions .btn.tiny{ padding:8px 10px; border-radius:12px }
+  .hide-mobile{ display:none !important } /* Arduino/Logout/Kalibrieren aus */
 
-  /* Live kompakter */
-  .live-wrap{ flex-direction:column; align-items:flex-start; gap:10px }
-  .live-left{ min-width:0 }
-  .live-percent{ font-size:44px }
-  .bar{ height:16px }
-
-  /* Chart */
-  .chart-wrap{ height:200px }
-
-  /* Grid → 1 Spalte */
-  .grid2{ grid-template-columns:1fr }
-
-  /* Cards: weicher */
+  /* Karten/Grids/Chart kompakter */
   .card{ border-radius:18px; padding:14px }
-  .card-head{ flex-direction:column; align-items:flex-start; gap:10px }
-  .head-tools{ width:100%; gap:8px; flex-wrap:wrap }
-  .range{ flex:1 }
-  .btn.seg{ flex:1; text-align:center }
+  .card-head{ flex-direction:column; align-items:flex-start; gap:8px }
+  .grid2{ grid-template-columns:1fr }
+  .chart-wrap{ height:240px }
 
-  /* Sidebar breite */
-  .sidebar{ width:min(94vw, 400px) }
-}
+  /* Inputs: stabile Größe (kein iOS-Zoom) & große Touch-Ziele */
+  .input, .select, .btn, .textarea-auto{ font-size:16px }
+  .btn{ min-height:44px }
 
-/* ===== Tiny Phones (≤ 480px) ===== */
-@media (max-width: 480px){
-  .brand{ font-size:19px }
-  .actions .btn{ min-width:100%; flex:1 0 100% } /* 1 Spalte, nie gequetscht */
-  .live-percent{ font-size:38px }
-  .modal-card{ width: min(96vw, 560px) }
+  /* Dialoge etwas kompakter, sicher in Viewport */
+  .modal-card{
+    width:min(720px, 96vw);
+    margin:0 auto;
+    border-radius:18px;
+  }
   .modal-body{ padding:12px }
-  .modal-head, .modal-foot{ padding:10px 12px }
-}
+  .modal-foot{ padding:12px }
 
-/* ===== Ultra Small (≤ 360px) ===== */
-@media (max-width: 360px){
-  .brand{ font-size:18px }
-  .btn{ padding:9px 12px; border-radius:12px }
-  .btn.tiny{ padding:6px 8px; font-size:11.5px }
-  .label{ font-size:12px }
-  .input{ padding:12px 14px }
-  .textarea-auto{ padding:12px 14px }
-}
-
-/* ===== Motion preference ===== */
-@media (prefers-reduced-motion: reduce){
-  *{ transition:none !important; animation:none !important }
+  /* Sidebar etwas schmaler */
+  .sidebar{ width:min(86vw, 320px) }
+  #arduinoList .arduino-row{ grid-template-columns: 1fr 1fr; }
 }
