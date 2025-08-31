@@ -1,5 +1,3 @@
-// file: public/assets/app.js
-
 // ==== Config & State ====
 const POLL_MS = 3000;
 const RAW_MAX = 4095;
@@ -119,24 +117,33 @@ function resetLiveUI(){
   currentDisplayedPercent = null;
 }
 
-// ---- Dialog helpers: exakt ein Modal zur Zeit ----
-function safeShowModal(dlg){
-  if (!dlg) return;
-  try { dlg.showModal(); }
-  catch(e){ if (!dlg.open) dlg.setAttribute('open',''); }
+// ---- Dialog helpers (eine Quelle der Wahrheit) ----
+function closeSidebar(){
+  els.sidebar?.classList.remove('open');
+  els.sidebar?.setAttribute('aria-hidden','true');
+  if (els.sidebarOverlay) els.sidebarOverlay.hidden = true;
 }
 function closeAllDialogs(){
   document.querySelectorAll('dialog[open]').forEach(d=>{
     try{ d.close(); }catch{ d.removeAttribute('open'); }
   });
 }
-function openModalSolo(dlg){
-  if (!dlg) return;
+function openDialog(dlg){
+  if (!dlg) return false;
+  closeSidebar();
   closeAllDialogs();
-  // zwei Ticks geben Browsern Zeit, Close zu verarbeiten
-  requestAnimationFrame(()=> {
-    setTimeout(()=> safeShowModal(dlg), 0);
-  });
+  try {
+    if (typeof dlg.showModal === "function") {
+      dlg.showModal();            // synchron – wichtig für iOS
+    } else {
+      dlg.setAttribute("open",""); // Fallback
+    }
+    return true;
+  } catch (e){
+    // letzter Fallback
+    dlg.setAttribute("open","");
+    return dlg.hasAttribute("open");
+  }
 }
 
 // ==== Live UI ====
@@ -315,6 +322,31 @@ async function savePlantProfile(){
 }
 
 // ==== Calibration UI ====
+// — synchron & robust öffnen —
+function openCalibModal(){
+  const dlg = els.modal;
+  if (!dlg) { console.error("Kalibrierungs-Dialog (#calibModal) nicht gefunden."); return; }
+
+  // UI vorbereiten
+  els.calibPlantName && (els.calibPlantName.textContent = plantProfile?.name || SENSOR_ID);
+  renderCalibSummary();
+  if (els.dryInput) els.dryInput.value = (config?.rawDry ?? "");
+  if (els.wetInput) els.wetInput.value = (config?.rawWet ?? "");
+  if (els.liveRaw) els.liveRaw.textContent = "—";
+  if (els.livePct) els.livePct.textContent = "—%";
+
+  // sofort im Click öffnen (User-Gesture)
+  const ok = openDialog(dlg);
+  if (ok) {
+    // Live-RAW kurz danach holen
+    setTimeout(readCurrentRaw, 50);
+  }
+}
+document.addEventListener("click", (ev)=>{
+  const btn = ev.target.closest("#calibBtn");
+  if (btn){ ev.preventDefault(); openCalibModal(); }
+});
+
 function setCalibPreviewFromInputs(){
   const rawStr = els.liveRaw?.textContent;
   const raw = Number(rawStr?.replace(/[^\d.]/g,''));
@@ -330,45 +362,16 @@ function setCalibPreviewFromInputs(){
 async function readCurrentRaw(){
   try{
     const r = await fetch(`/api/soil?sensorId=${encodeURIComponent(SENSOR_ID)}&range=latest`, {cache:"no-store"});
-    if (!r.ok){ els.liveRaw.textContent = "—"; return; }
+    if (!r.ok){ els.liveRaw && (els.liveRaw.textContent = "—"); return; }
     const data = await r.json();
     if (data?.latest?.raw != null){
-      els.liveRaw.textContent = String(data.latest.raw);
+      if (els.liveRaw) els.liveRaw.textContent = String(data.latest.raw);
       setCalibPreviewFromInputs();
     } else {
-      els.liveRaw.textContent = "—";
+      els.liveRaw && (els.liveRaw.textContent = "—");
     }
-  }catch{ els.liveRaw.textContent = "—"; }
+  }catch{ els.liveRaw && (els.liveRaw.textContent = "—"); }
 }
-function closeSidebar(){
-  els.sidebar?.classList.remove('open');
-  els.sidebar?.setAttribute('aria-hidden','true');
-  if (els.sidebarOverlay) els.sidebarOverlay.hidden = true;
-}
-
-function openCalibModal(){
-  if (!els.modal) { console.error("Kalibrierungs-Dialog (#calibModal) nicht gefunden."); return; }
-  closeSidebar();
-  els.calibPlantName.textContent = plantProfile?.name || SENSOR_ID;
-  renderCalibSummary();
-  if (els.dryInput) els.dryInput.value = (config?.rawDry ?? "");
-  if (els.wetInput) els.wetInput.value = (config?.rawWet ?? "");
-  if (els.liveRaw) els.liveRaw.textContent = "—";
-  if (els.livePct) els.livePct.textContent = "—%";
-
-  // zuverlässig nur dieses Modal öffnen
-  openModalSolo(els.modal);
-
-  // nach dem Öffnen RAW anstoßen (kleiner Tick)
-  setTimeout(()=> { readCurrentRaw(); }, 60);
-
-  // wenn der UA das erste Öffnen ignoriert, noch ein Versuch im nächsten Frame
-  requestAnimationFrame(()=> {
-    if (!els.modal.open) safeShowModal(els.modal);
-  });
-}
-
-els.calibBtn?.addEventListener("click", (e)=>{ e.preventDefault(); openCalibModal(); });
 els.useDryNow?.addEventListener("click", async ()=>{ await readCurrentRaw(); const v = Number(els.liveRaw?.textContent); if (Number.isFinite(v) && els.dryInput) els.dryInput.value = v; setCalibPreviewFromInputs(); });
 els.useWetNow?.addEventListener("click", async ()=>{ await readCurrentRaw(); const v = Number(els.liveRaw?.textContent); if (Number.isFinite(v) && els.wetInput) els.wetInput.value = v; setCalibPreviewFromInputs(); });
 els.readNow?.addEventListener("click", readCurrentRaw);
@@ -464,7 +467,7 @@ async function loadSensors(){
 }
 
 // Neue Pflanze (mit Pin)
-els.addPlantBtn?.addEventListener("click", ()=> openModalSolo(els.newPlantModal));
+els.addPlantBtn?.addEventListener("click", ()=> openDialog(els.newPlantModal));
 els.np_save?.addEventListener("click", async ()=>{
   const id = els.np_id?.value?.trim();
   const name = els.np_name?.value?.trim();
@@ -514,7 +517,7 @@ async function openInfo(){
     els.info_size.textContent = "—";
     if (els.info_pin) els.info_pin.value = plantProfile?.pin || "";
   }
-  openModalSolo(els.infoModal);
+  openDialog(els.infoModal);
 }
 els.infoBtn?.addEventListener("click", openInfo);
 
@@ -542,7 +545,7 @@ els.openWipeBtn?.addEventListener("click", ()=>{
   if (!SENSOR_ID) { alert("Keine Pflanze ausgewählt."); return; }
   if (els.wipeRange) els.wipeRange.value = "24";
   renderWipeLabel();
-  openModalSolo(els.wipeModal);
+  openDialog(els.wipeModal);
 });
 els.wipeRange?.addEventListener("input", renderWipeLabel);
 
@@ -602,7 +605,6 @@ async function deleteCurrentPlant(){
       body: JSON.stringify({ sensorId: SENSOR_ID }),
       signal: controller.signal
     });
-    clearTimeout(timeoutId);
 
     if (!r.ok) {
       const txt = await r.text().catch(()=> "");
@@ -646,7 +648,7 @@ async function openArduinoGenerator(){
   if (!window.ArduinoGen) {
     await (function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.defer=true; s.onload=res; s.onerror=rej; document.head.appendChild(s); });})("/assets/arduino-gen.js");
   }
-  openModalSolo(document.getElementById("arduinoModal"));
+  openDialog(document.getElementById("arduinoModal"));
   window.ArduinoGen.open();
 }
 els.arduinoBtn?.addEventListener("click", openArduinoGenerator);
