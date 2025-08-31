@@ -12,23 +12,48 @@ function redis() {
   return redisP;
 }
 
-export default async function handler(_req, res){
-  const r = await redis();
-  const ids = await r.sMembers('soil:sensors');
-  const sensors = [];
-  for (const id of ids){
-    const [cfgRaw, profRaw] = await Promise.all([
-      r.get(`soil:${id}:config`),
-      r.get(`soil:${id}:plant:profile`)
-    ]);
-    const cfg = cfgRaw ? JSON.parse(cfgRaw) : null;
-    const profile = profRaw ? JSON.parse(profRaw) : null;
-    sensors.push({
-      id,
-      name: profile?.name || id,
-      calibrated: !!(cfg?.rawDry!=null && cfg?.rawWet!=null)
-    });
+export default async function handler(req, res){
+  res.setHeader("Access-Control-Allow-Origin","*");
+  res.setHeader("Access-Control-Allow-Methods","GET,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers","Content-Type");
+  if (req.method === "OPTIONS") return res.status(204).end();
+  if (req.method !== "GET") { res.setHeader("Allow",["GET"]); return res.status(405).end("Method Not Allowed"); }
+
+  try{
+    const r = await redis();
+
+    // Set mit allen bekannten Sensoren
+    const ids = await r.sMembers("soil:sensors"); // [] wenn leer
+
+    // Für jede ID Profil + Kalibrierung einsammeln
+    const results = [];
+    for (const id of ids){
+      const keyProfile = `soil:${id}:plant:profile`;
+      const keyConfig  = `soil:${id}:config`;
+
+      const [profRaw, cfgRaw] = await Promise.all([
+        r.get(keyProfile),
+        r.get(keyConfig)
+      ]);
+
+      let profile = null;
+      try { profile = profRaw ? JSON.parse(profRaw) : null; } catch {}
+      let config = null;
+      try { config = cfgRaw ? JSON.parse(cfgRaw) : null; } catch {}
+
+      const name = profile?.name || null;
+      const pin  = profile?.pin || null;
+      const calibrated = Number.isFinite(config?.rawDry) && Number.isFinite(config?.rawWet) && config.rawDry !== config.rawWet;
+
+      results.push({ id, name, pin, calibrated });
+    }
+
+    // konsistente Sortierung: Name (fallback id)
+    results.sort((a,b)=> (a.name || a.id).localeCompare(b.name || b.id, 'de'));
+
+    return res.status(200).json({ sensors: results });
+  }catch(e){
+    console.error("sensors route failed:", e);
+    return res.status(500).send("Internal Server Error");
   }
-  sensors.sort((a,b)=> (a.name||a.id).localeCompare(b.name||b.id, 'de', {numeric:true, sensitivity:'base'}));
-  res.json({ sensors });
 }
