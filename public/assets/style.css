@@ -185,17 +185,32 @@ select.select{ background-image: none }
 textarea[readonly]{ opacity:.95; }
 
 /* ===== Modal ===== */
-.modal{ border:0; padding:0; background:transparent }
-.modal::backdrop{ background:rgba(0,0,0,.5) }
+/* Dialog nimmt den ganzen Viewport, hat aber Safe-Area-Abstände */
+.modal{
+  border:0;
+  background:transparent;
+  position: fixed;
+  inset: 0;
+  display:flex;
+  align-items:flex-start;          /* oben ansetzen (besser für sehr hohe Dialoge) */
+  justify-content:center;
+  padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+}.modal::backdrop{ background:rgba(0,0,0,.5) }
 .modal-card{
   background:var(--panel); color:var(--fg);
   border:1px solid var(--stroke); border-radius:20px;
   width:min(840px,92vw); box-shadow:var(--shadow); overflow:hidden;
+  display:flex; flex-direction:column;
+  max-height: calc(100dvh - (max(12px, env(safe-area-inset-top)) + max(12px, env(safe-area-inset-bottom)) + 24px));
+}
 }
 .modal-head{ display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--stroke) }
 .modal-head h4{ margin:0 }
 .modal-head .close{ margin-left:auto }
-.modal-body{ padding:14px }
+.modal-body{
+  padding:14px;
+  overflow:auto;              /* Inhalt scrollt innerhalb der Karte */
+}
 .modal-foot{ display:flex; align-items:center; gap:8px; padding:12px 14px; border-top:1px solid var(--stroke) }
 .modal-foot .spacer{ flex:1 }
 
@@ -357,7 +372,10 @@ textarea[readonly]{ opacity:.95; }
   .btn{ min-height:40px }
 
   /* Dialoge kompakter, viewport-sicher */
-  .modal-card{ width:min(720px, 96vw); margin:0 auto; border-radius:18px }
+  .modal-card{
+    width:min(720px, 96vw);
+    border-radius:18px;
+  }
   .modal-body{ padding:12px }
   .modal-foot{ padding:12px }
 
