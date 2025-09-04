@@ -1,8 +1,4 @@
 /* public/assets/anim.css */
-/* Respektiere Systemeinstellung */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation: none !important; transition: none !important; }
-}
 
 /* ---------- On-load Animations (ohne HTML-Änderungen) ---------- */
 .topbar {
@@ -65,17 +61,39 @@
   to   { transform: translateY(0)   scale(1);    opacity: 1 }
 }
 
-/* Timestamp Highlight Effekt */
-@keyframes ts-highlight {
-  0%   { color: var(--fg-strong); background: color-mix(in oklab, var(--ok) 60%, transparent); }
-  30%  { color: var(--ok); background: color-mix(in oklab, var(--ok) 30%, transparent); }
-  70%  { color: var(--ok); background: transparent; }
-  100% { color: var(--muted); background: transparent; }
-}
+/* --- Timestamp Highlight: deutlich sichtbarer Effekt --- */
+/* Falls du oben einen globalen "prefers-reduced-motion: reduce" Block hast,
+   der *alle* Animationen mit !important killt, bitte entfernen/kommentieren,
+   sonst läuft diese Animation nie. */
 
 #ts.ts-anim {
-  animation: ts-highlight 1.4s ease forwards;
-  padding: 2px 4px;
+  /* inline-block, damit Padding/Background wirklich sichtbar ist */
+  display: inline-block;
+  animation: ts-highlight 1.4s ease-out forwards;
+  padding: 2px 6px;
   border-radius: 6px;
-  transition: none; /* damit kein CSS-Transition stört */
+}
+
+/* robustes Keyframe mit Fallback-RGBA (ohne color-mix) */
+@keyframes ts-highlight {
+  0% {
+    color: var(--fg-strong);
+    background: rgba(26,127,55,0.35);     /* Start: grünlich leuchtend */
+    box-shadow: 0 0 0 0 rgba(26,127,55,0.00);
+  }
+  30% {
+    color: var(--ok);
+    background: rgba(26,127,55,0.20);
+    box-shadow: 0 0 0 8px rgba(26,127,55,0.12); /* weicher Glow-Ring */
+  }
+  70% {
+    color: var(--ok);
+    background: rgba(26,127,55,0.06);
+    box-shadow: 0 0 0 0 rgba(26,127,55,0.00);
+  }
+  100% {
+    color: var(--muted);                   /* zurück in „muted“ */
+    background: transparent;
+    box-shadow: none;
+  }
 }

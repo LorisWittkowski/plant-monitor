@@ -131,8 +131,8 @@ function updateLive(raw, atIso){
   if (els.raw) els.raw.textContent = raw;
     if (els.ts) {
       els.ts.textContent = new Date(atIso).toLocaleString();
-      els.ts.classList.remove("ts-anim");      // reset Animation
-      void els.ts.offsetWidth;                 // Reflow trick, damit sie neu startet
+      els.ts.classList.remove("ts-anim");  // reset
+      void els.ts.offsetWidth;             // Reflow, damit die Animation neu startet
       els.ts.classList.add("ts-anim");
     }
 }
