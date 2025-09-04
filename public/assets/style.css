@@ -200,9 +200,7 @@ textarea[readonly]{ opacity:.95; }
   background:var(--panel); color:var(--fg);
   border:1px solid var(--stroke); border-radius:20px;
   width:min(840px,92vw); box-shadow:var(--shadow); overflow:hidden;
-  display:flex; flex-direction:column;
-  max-height: calc(100dvh - (max(12px, env(safe-area-inset-top)) + max(12px, env(safe-area-inset-bottom)) + 24px));
-}
+  
 }
 .modal-head{ display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--stroke) }
 .modal-head h4{ margin:0 }
