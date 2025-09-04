@@ -132,6 +132,7 @@ select.select{ background-image: none }
   align-items:center;           /* vertikal mittig */
   justify-content:center;       /* horizontal mittig */
   line-height:1;                /* verhindert „zu weit oben“-Effekt */
+
 }
 .btn:hover{ filter:brightness(1.04) }
 .btn.primary{ background:var(--fg); color:var(--panel); border-color:var(--fg) }
@@ -185,22 +186,12 @@ select.select{ background-image: none }
 textarea[readonly]{ opacity:.95; }
 
 /* ===== Modal ===== */
-/* Dialog nimmt den ganzen Viewport, hat aber Safe-Area-Abstände */
-.modal{
-  border:0;
-  background:transparent;
-  position: fixed;
-  inset: 0;
-  display:flex;
-  align-items:flex-start;          /* oben ansetzen (besser für sehr hohe Dialoge) */
-  justify-content:center;
-  padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
-}.modal::backdrop{ background:rgba(0,0,0,.5) }
+.modal{ border:0; padding:0; background:transparent }
+.modal::backdrop{ background:rgba(0,0,0,.5) }
 .modal-card{
   background:var(--panel); color:var(--fg);
   border:1px solid var(--stroke); border-radius:20px;
   width:min(840px,92vw); box-shadow:var(--shadow); overflow:hidden;
-  
 }
 .modal-head{ display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--stroke) }
 .modal-head h4{ margin:0 }
