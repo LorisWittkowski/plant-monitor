@@ -61,29 +61,43 @@
   to   { transform: translateY(0)   scale(1);    opacity: 1 }
 }
 
-/* --- Timestamp Smooth Shimmer --- */
-#ts {
+/* --- Timestamp Sheen (stabil, ohne Text-Masking) --- */
+#ts{
   position: relative;
   display: inline-block;
-  background: none;
-  color: var(--muted);
+  color: var(--muted);           /* Basisfarbe bleibt immer sichtbar */
+  transition: color .4s ease;    /* optional: weicher Farbwechsel */
 }
 
-#ts.ts-anim {
-  background: linear-gradient(90deg,
-    var(--ok) 0%,
-    var(--fg-strong) 40%,
-    var(--ok) 80%);
-  background-size: 200% 100%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+/* dezenter Farbakzent (kannst du auch weglassen, wenn du 0 Farbe willst) */
+#ts.ts-anim{ color: color-mix(in oklab, var(--ok) 55%, var(--muted)); }
 
-  animation: ts-shimmer 1.8s ease forwards;
+/* Sheen-Overlay läuft einmal drüber, dann verschwindet es */
+#ts.ts-anim::after{
+  content: "";
+  position: absolute;
+  inset: -2px -4px;              /* etwas größer als Text für weichen Rand */
+  border-radius: 6px;
+  pointer-events: none;
+
+  /* schmaler, moderner „Sheen“-Gradientschlauch */
+  background: linear-gradient(100deg,
+    rgba(26,127,55,0) 0%,
+    rgba(26,127,55,0.18) 28%,
+    rgba(255,255,255,0.35) 50%,
+    rgba(26,127,55,0.18) 72%,
+    rgba(26,127,55,0) 100%
+  );
+
+  transform: translateX(-120%) skewX(-12deg);
+  opacity: 0;
+  animation: ts-sheen 1.1s cubic-bezier(.2,.7,.2,1) forwards;
+  will-change: transform, opacity;
 }
 
-@keyframes ts-shimmer {
-  0%   { background-position: 200% 0; opacity: 0.0; }
-  20%  { opacity: 1; }
-  60%  { background-position: 0% 0; opacity: 1; }
-  100% { background-position: -100% 0; opacity: 0.3; }
+@keyframes ts-sheen{
+  0%   { opacity: 0;   transform: translateX(-120%) skewX(-12deg); }
+  12%  { opacity: .9; }
+  60%  { opacity: .45; transform: translateX(0%)     skewX(-12deg); }
+  100% { opacity: 0;   transform: translateX(120%)   skewX(-12deg); }
 }
