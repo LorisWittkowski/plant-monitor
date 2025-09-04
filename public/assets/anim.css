@@ -64,3 +64,18 @@
   from { transform: translateY(6px) scale(.99); opacity: 0 }
   to   { transform: translateY(0)   scale(1);    opacity: 1 }
 }
+
+/* Timestamp Highlight Effekt */
+@keyframes ts-highlight {
+  0%   { color: var(--fg-strong); background: color-mix(in oklab, var(--ok) 60%, transparent); }
+  30%  { color: var(--ok); background: color-mix(in oklab, var(--ok) 30%, transparent); }
+  70%  { color: var(--ok); background: transparent; }
+  100% { color: var(--muted); background: transparent; }
+}
+
+#ts.ts-anim {
+  animation: ts-highlight 1.4s ease forwards;
+  padding: 2px 4px;
+  border-radius: 6px;
+  transition: none; /* damit kein CSS-Transition stört */
+}

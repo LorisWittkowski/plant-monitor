@@ -129,7 +129,12 @@ function updateLive(raw, atIso){
     els.value.textContent = show + "%";
   currentDisplayedPercent = safeP;
   if (els.raw) els.raw.textContent = raw;
-  if (els.ts) els.ts.textContent = new Date(atIso).toLocaleString();
+    if (els.ts) {
+      els.ts.textContent = new Date(atIso).toLocaleString();
+      els.ts.classList.remove("ts-anim");      // reset Animation
+      void els.ts.offsetWidth;                 // Reflow trick, damit sie neu startet
+      els.ts.classList.add("ts-anim");
+    }
 }
 
 // ==== Calibration summary ====
