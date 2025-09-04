@@ -128,6 +128,10 @@ select.select{ background-image: none }
   transition:filter .15s ease, background .15s ease, color .15s ease, border-color .15s ease;
   min-height:40px;
   font-weight:500;
+  display:inline-flex;          /* sorgt für echte Zentrierung im Button */
+  align-items:center;           /* vertikal mittig */
+  justify-content:center;       /* horizontal mittig */
+  line-height:1;                /* verhindert „zu weit oben“-Effekt */
 }
 .btn:hover{ filter:brightness(1.04) }
 .btn.primary{ background:var(--fg); color:var(--panel); border-color:var(--fg) }
