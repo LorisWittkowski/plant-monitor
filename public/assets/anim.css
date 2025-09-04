@@ -1,0 +1,66 @@
+/* public/assets/anim.css */
+/* Respektiere Systemeinstellung */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* ---------- On-load Animations (ohne HTML-Änderungen) ---------- */
+.topbar {
+  /* leichtes Einblenden & Slide von oben */
+  animation: topbar-in .45s cubic-bezier(.2,.7,.2,1) both;
+}
+@keyframes topbar-in {
+  from { transform: translateY(-8px); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+
+.card {
+  /* sanftes Hochkommen (Stagger per nth-child) */
+  animation: card-in .5s .05s both cubic-bezier(.2,.7,.2,1);
+}
+.card:nth-of-type(2) { animation-delay: .12s }
+.card:nth-of-type(3) { animation-delay: .18s }
+@keyframes card-in {
+  from { transform: translateY(8px); opacity: 0 }
+  to   { transform: translateY(0);   opacity: 1 }
+}
+
+/* Sidebar */
+.sidebar { will-change: transform; } /* smoother */
+.sidebar.open { transition: transform .28s cubic-bezier(.2,.7,.2,1); }
+
+/* ---------- Micro-Interactions ---------- */
+/* Buttons: leichter Lift auf Hover, Tap-Feedback auf Active */
+.btn { transition: transform .12s ease, box-shadow .18s ease; }
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: translateY(0); filter: brightness(0.98); }
+
+/* „Chip“-Buttons (tiny) etwas federnder */
+.btn.tiny:hover { transform: translateY(-1px) scale(1.01); }
+.btn.tiny:active { transform: translateY(0) scale(0.99); }
+
+/* Segmented Range: aktiver Tab pulsiert kurz beim Wechsel (wenn aria-selected gesetzt wird) */
+.btn.seg[aria-selected="true"] {
+  animation: pulse-in .28s cubic-bezier(.2,.7,.2,1);
+}
+@keyframes pulse-in {
+  from { transform: scale(.98) }
+  60%  { transform: scale(1.02) }
+  to   { transform: scale(1) }
+}
+
+/* Live-Balken: du hast schon width-Transition; hier ein subtiler Glow */
+.fill {
+  box-shadow: 0 0 0 rgba(0,0,0,0);
+  transition: width .5s cubic-bezier(.2,.7,.2,1), box-shadow .5s ease;
+}
+.fill[style*="width"] { box-shadow: 0 0 10px color-mix(in oklab, var(--bar) 40%, transparent); }
+
+/* Modal: smoother Auf/Zu (Dialog selbst kann kein enter/leave, aber Karte schon) */
+.modal[open] .modal-card {
+  animation: modal-in .26s cubic-bezier(.2,.7,.2,1) both;
+}
+@keyframes modal-in {
+  from { transform: translateY(6px) scale(.99); opacity: 0 }
+  to   { transform: translateY(0)   scale(1);    opacity: 1 }
+}
