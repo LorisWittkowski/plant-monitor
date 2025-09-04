@@ -372,10 +372,7 @@ textarea[readonly]{ opacity:.95; }
   .btn{ min-height:40px }
 
   /* Dialoge kompakter, viewport-sicher */
-  .modal-card{
-    width:min(720px, 96vw);
-    border-radius:18px;
-  }
+  .modal-card{ width:min(720px, 96vw); margin:0 auto; border-radius:18px }
   .modal-body{ padding:12px }
   .modal-foot{ padding:12px }
 
