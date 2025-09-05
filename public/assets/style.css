@@ -54,12 +54,12 @@ a{ color:inherit; text-decoration:none }
 /* ===== Containers ===== */
 .container{ max-width:1100px; margin:0 auto; padding:16px }
 .stack > *{ margin-bottom:16px }
-/* Platz für die fixe Topbar – Höhe kommt dynamisch aus JS */
-main.container.stack{
-  padding-top: calc(var(--topbar-h, 72px) + 8px);
-}
-/* ===== Topbar (fixed – „heilig“) ===== */
-.topbar {
+
+/* Content Abstand unter der fixen Topbar (Höhe kommt dynamisch aus JS) */
+main.container.stack{ padding-top: calc(var(--topbar-h, 72px) + 8px) }
+
+/* ===== Topbar (fixed – statusbar-sicher) ===== */
+.topbar{
   position: fixed;
   top: 0; left: 0; right: 0;
   z-index: 100;
@@ -67,27 +67,33 @@ main.container.stack{
   border-bottom: 1px solid var(--stroke);
   color: var(--fg);
 
-  /* Notch + iOS-Offset */
-  padding-top: calc(env(safe-area-inset-top) + var(--vv-top, 0px));
+  /* Standard-Top-Padding: wird unten per Klasse präzisiert */
+  padding-top: var(--vv-top, 0px);
 
-  /* Fix für iOS Jank */
+  /* Jank-Killer */
   will-change: padding-top, transform;
   backface-visibility: hidden;
   transform: translateZ(0);
   contain: layout paint size;
 }
 
-.topbar-inner {
+/* Wenn iOS-Statusbar überlagert (black-translucent) → Safe-Area + VV-Offset */
+html.overlay-status .topbar{
+  padding-top: calc(env(safe-area-inset-top) + var(--vv-top, 0px));
+}
+
+/* Wenn nicht überlagert (default/black) → nur VV-Offset */
+html:not(.overlay-status) .topbar{
+  padding-top: var(--vv-top, 0px);
+}
+
+.topbar-inner{
   display:flex;
   justify-content:space-between;
   align-items:center;
   min-height:56px;
 }
 
-/* Content Abstand unter der Topbar */
-main.container.stack {
-  padding-top: calc(var(--topbar-h, 72px) + 8px);
-}
 /* Brand / Header */
 .brand{
   font-size:24px;
@@ -148,7 +154,6 @@ select.select{ background-image: none }
   min-height:40px;
   font-weight:500;
 
-  /* saubere Zentrierung */
   display:inline-flex;
   align-items:center;
   justify-content:center;
@@ -206,14 +211,7 @@ select.select{ background-image: none }
 textarea[readonly]{ opacity:.95; }
 
 /* ===== Modal ===== */
-/* Grundzustand: NICHT offen → Browser darf es ausblenden */
-.modal{
-  border:0;
-  padding:0;
-  background:transparent;
-}
-
-/* Nur wenn open → Fullscreen-Flex-Layout */
+.modal{ border:0; padding:0; background:transparent }
 .modal[open]{
   position: fixed;
   inset: 0;
@@ -326,7 +324,7 @@ textarea[readonly]{ opacity:.95; }
   overflow:auto;
 }
 
-/* ===== Responsive: Mobile Polishing (≤ 640px) ===== */
+/* ===== Responsive: Mobile (≤ 640px) ===== */
 @media (max-width: 640px){
   html, body{ overscroll-behavior-y:none }
   .container{ padding:12px 12px max(12px, env(safe-area-inset-bottom)) }

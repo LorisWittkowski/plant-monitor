@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Plant Monitor</title>
 
-  <!-- Base CSS -->
+  <!-- Basis-Styles -->
   <link rel="stylesheet" href="/assets/style.css" />
-  <!-- Optional Animations (separate Datei) -->
+  <!-- Optional: Animationen -->
   <link rel="stylesheet" href="/assets/anim.css" />
 
-  <!-- iOS Home Screen Icons (180/167, Fallback + Light/Dark) -->
+  <!-- iOS Home Screen Icons (180/167) jeweils Light/Dark -->
   <link rel="apple-touch-icon" href="/apple-touch-icon-180.png" sizes="180x180" />
   <link rel="apple-touch-icon" href="/apple-touch-icon-180-light.png" sizes="180x180" media="(prefers-color-scheme: light)" />
   <link rel="apple-touch-icon" href="/apple-touch-icon-180-dark.png" sizes="180x180" media="(prefers-color-scheme: dark)" />
@@ -21,9 +21,9 @@
 
   <meta name="apple-mobile-web-app-title" content="Plant Monitor" />
 
-  <!-- iOS PWA Statusbar -->
+  <!-- iOS PWA Statusbar: neutral starten, wird per JS dynamisch umgeschaltet -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 
   <!-- Browser-/Tab-UI Farbe (Light/Dark per Media) -->
   <meta name="theme-color" content="#f5f6f7" media="(prefers-color-scheme: light)" />
@@ -45,7 +45,7 @@
 
   <!-- 🌿 App (hidden bis Login) -->
   <div id="app" hidden>
-    <!-- Sticky Topbar -->
+    <!-- Fixe Topbar (statusbar-sicher) -->
     <header class="topbar">
       <div class="container topbar-inner">
         <button id="menuBtn" class="btn tiny icon-left" type="button" aria-label="Seitenmenü öffnen">☰</button>
@@ -435,65 +435,90 @@
       document.getElementById("pinInput")?.addEventListener("keydown", e=>{ if (e.key === "Enter") checkPin(); });
       document.getElementById("logoutBtn")?.addEventListener("click", logout);
     });
+  </script>
 
+  <!-- 🔧 iOS: jankfreie, statusbar-sichere Topbar -->
+  <script>
+    // 1) VisualViewport → --vv-top (gedrosselt) & --topbar-h (selten)
+    (function(){
+      const RAF = fn => (window.requestAnimationFrame || setTimeout)(fn, 16);
+      let vvTopLast = -1, rafPending = false;
 
-      // --- iOS: jankfreie Topbar mit gedrosselten Updates ---
-      (function(){
-        const RAF = fn => (window.requestAnimationFrame || setTimeout)(fn, 16);
+      function setVar(name, val){ document.documentElement.style.setProperty(name, val); }
 
-        let vvTopLast = -1;
-        let rafPending = false;
+      function updateVVTop(){
+        if (rafPending) return;
+        rafPending = true;
+        RAF(()=>{
+          rafPending = false;
+          const vv = window.visualViewport;
+          const top = vv ? Math.max(0, Math.round(vv.offsetTop || 0)) : 0;
+          if (top !== vvTopLast){
+            vvTopLast = top;
+            setVar('--vv-top', top + 'px');
+          }
+        });
+      }
 
-        function setVar(name, val){ document.documentElement.style.setProperty(name, val); }
+      function measureTopbarHeight(){
+        RAF(()=>{
+          const el = document.querySelector('.topbar');
+          if (!el) return;
+          const h = Math.round(el.getBoundingClientRect().height);
+          setVar('--topbar-h', h + 'px');
+        });
+      }
 
-        // 1) Nur --vv-top häufig updaten (billig & gedrosselt)
-        function updateVVTop(){
-          if (rafPending) return;
-          rafPending = true;
-          RAF(()=>{
-            rafPending = false;
-            const vv = window.visualViewport;
-            const top = vv ? Math.max(0, Math.round(vv.offsetTop || 0)) : 0;
-            if (top !== vvTopLast){
-              vvTopLast = top;
-              setVar('--vv-top', top + 'px');
-            }
-          });
-        }
+      // init
+      updateVVTop();
+      measureTopbarHeight();
 
-        // 2) --topbar-h nur selten messen (kein Trigger auf jeden VV-Tick)
-        function measureTopbarHeight(){
-          // einmal im nächsten Frame messen (Layout stabil)
-          RAF(()=>{
-            const el = document.querySelector('.topbar');
-            if (!el) return;
-            const h = Math.round(el.getBoundingClientRect().height);
-            setVar('--topbar-h', h + 'px');
-          });
-        }
+      // Events
+      if (window.visualViewport){
+        visualViewport.addEventListener('resize', updateVVTop, {passive:true});
+        visualViewport.addEventListener('scroll', updateVVTop, {passive:true});
+      }
+      window.addEventListener('orientationchange', ()=>{ updateVVTop(); measureTopbarHeight(); }, {passive:true});
+      window.addEventListener('resize',            ()=>{ updateVVTop(); measureTopbarHeight(); }, {passive:true});
+      window.addEventListener('focusin',           updateVVTop, {passive:true});
+      window.addEventListener('focusout',          ()=>{ setTimeout(updateVVTop, 60); }, {passive:true});
+      document.addEventListener('visibilitychange',updateVVTop, {passive:true});
 
-        // init
-        updateVVTop();
-        measureTopbarHeight();
+      // MutationObserver: wenn Topbar-Inhalt umbricht/ändert
+      const top = document.querySelector('.topbar');
+      if (top){
+        const mo = new MutationObserver(()=> measureTopbarHeight());
+        mo.observe(top, {childList:true, subtree:true, attributes:true});
+      }
+    })();
 
-        // Events: VV → nur --vv-top; Layout-Events → Höhe neu
-        if (window.visualViewport){
-          visualViewport.addEventListener('resize', updateVVTop, {passive:true});
-          visualViewport.addEventListener('scroll', updateVVTop, {passive:true});
-        }
-        window.addEventListener('orientationchange', ()=>{ updateVVTop(); measureTopbarHeight(); }, {passive:true});
-        window.addEventListener('resize',            ()=>{ updateVVTop(); measureTopbarHeight(); }, {passive:true});
-        window.addEventListener('focusin',           updateVVTop, {passive:true});
-        window.addEventListener('focusout',          ()=>{ setTimeout(updateVVTop, 60); }, {passive:true});
-        document.addEventListener('visibilitychange',updateVVTop, {passive:true});
+    // 2) Statusbar-Stil dynamisch (Light → default; Dark → black-translucent)
+    (function(){
+      const meta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+      if (!meta) return;
 
-        // Bei echtem Layout-Wechsel (z.B. Brand 2-zeilig, Buttons ändern)
-        const top = document.querySelector('.topbar');
-        if (top){
-          const mo = new MutationObserver(()=> measureTopbarHeight());
-          mo.observe(top, {childList:true, subtree:true, attributes:true});
-        }
-      })();
-      </script>
+      const mm = window.matchMedia('(prefers-color-scheme: dark)');
+
+      function applyStatusbar(){
+        const isDark = mm.matches || document.documentElement.getAttribute('data-theme') === 'dark';
+        meta.setAttribute('content', isDark ? 'black-translucent' : 'default');
+        document.documentElement.classList.toggle('overlay-status', isDark);
+
+        // Robustes Reflow-Signal an das VV-Skript, damit --topbar-h passt
+        requestAnimationFrame(()=> window.dispatchEvent(new Event('resize')));
+      }
+
+      // Initial + Systemwechsel
+      applyStatusbar();
+      mm.addEventListener?.('change', applyStatusbar);
+
+      // Dein Theme-Toggle
+      document.getElementById('themeToggle')?.addEventListener('click', ()=>{
+        const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', cur);
+        applyStatusbar();
+      });
+    })();
+  </script>
 </body>
 </html>
