@@ -1,3 +1,5 @@
+/* file: public/assets/style.css */
+
 /* ===== Theme Vars ===== */
 :root{
   --bg:#f5f6f7;
@@ -64,7 +66,6 @@ a{ color:inherit; text-decoration:none }
   background: var(--bg);
   border-bottom: 1px solid var(--stroke);
   color: var(--fg);
-  padding-top: env(safe-area-inset-top); /* Safe-Area gehört zur Topbar */
 }
 .topbar-inner{ display:flex; justify-content:space-between; align-items:center }
 
@@ -127,12 +128,11 @@ select.select{ background-image: none }
   transition:filter .15s ease, background .15s ease, color .15s ease, border-color .15s ease;
   min-height:40px;
   font-weight:500;
+  display:inline-flex;          /* sorgt für echte Zentrierung im Button */
+  align-items:center;           /* vertikal mittig */
+  justify-content:center;       /* horizontal mittig */
+  line-height:1;                /* verhindert „zu weit oben“-Effekt */
 
-  /* zentrierung */
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  line-height:1;
 }
 .btn:hover{ filter:brightness(1.04) }
 .btn.primary{ background:var(--fg); color:var(--panel); border-color:var(--fg) }
@@ -186,28 +186,17 @@ select.select{ background-image: none }
 textarea[readonly]{ opacity:.95; }
 
 /* ===== Modal ===== */
-.modal{
-  border:0;
-  background:transparent;
-  position: fixed;
-  inset: 0;
-  display:flex;
-  align-items:flex-start;
-  justify-content:center;
-  padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
-}
+.modal{ border:0; padding:0; background:transparent }
 .modal::backdrop{ background:rgba(0,0,0,.5) }
 .modal-card{
   background:var(--panel); color:var(--fg);
   border:1px solid var(--stroke); border-radius:20px;
   width:min(840px,92vw); box-shadow:var(--shadow); overflow:hidden;
-  display:flex; flex-direction:column;
-  max-height: calc(100dvh - (max(12px, env(safe-area-inset-top)) + max(12px, env(safe-area-inset-bottom)) + 24px));
 }
 .modal-head{ display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--stroke) }
 .modal-head h4{ margin:0 }
 .modal-head .close{ margin-left:auto }
-.modal-body{ padding:14px; overflow:auto }
+.modal-body{ padding:14px }
 .modal-foot{ display:flex; align-items:center; gap:8px; padding:12px 14px; border-top:1px solid var(--stroke) }
 .modal-foot .spacer{ flex:1 }
 
@@ -243,13 +232,9 @@ textarea[readonly]{ opacity:.95; }
 
 .sidebar-head{
   display:flex; align-items:center; gap:10px;
-  padding: calc(12px + env(safe-area-inset-top)) 14px 12px;
-  border-bottom:1px solid var(--stroke)
+  padding:12px 14px; border-bottom:1px solid var(--stroke)
 }
-.sidebar-foot{
-  margin-top:auto; padding:12px 14px calc(12px + env(safe-area-inset-bottom));
-  border-top:1px solid var(--stroke)
-}
+.sidebar-foot{ margin-top:auto; padding:12px 14px; border-top:1px solid var(--stroke) }
 
 .sidebar-overlay{
   position: fixed; inset: 0;
@@ -303,49 +288,48 @@ textarea[readonly]{ opacity:.95; }
   html, body{ overscroll-behavior-y:none }
   .container{ padding:12px 12px max(12px, env(safe-area-inset-bottom)) }
 
-  /* Topbar → 2 Zeilen (Brand + Chip-Scroller) */
+  /* Topbar → 3-Spalten-Grid */
+  .topbar{ padding-top: env(safe-area-inset-top); }
   .topbar-inner{
     display:grid;
-    grid-template-columns: 44px 1fr 44px;
-    grid-template-rows: auto auto;
+    grid-template-columns: 44px 1fr auto;
     align-items:center;
     gap:8px;
     padding:8px 8px;
   }
 
+  /* Brand etwas schlanker */
   .brand{
-    grid-column:2; grid-row:1;
+    grid-column:2;
     font-size:19px;
-    font-weight:500;
+    font-weight:500;        /* weniger fett */
     letter-spacing:-0.01em;
     margin:0;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
 
-  .hide-mobile{ display:none !important } /* Arduino/Logout etc. verbergen in Reihe 1 */
+  /* Nur „Dark“ und „Info“ anzeigen, einheitlicher Chip-Look */
+  .hide-mobile{ display:none !important } /* Arduino/Logout etc. verbergen */
   .actions{
-    grid-column:1 / -1; grid-row:2;
-    display:flex; gap:8px; align-items:center;
-    overflow-x:auto; overflow-y:hidden;
-    -webkit-overflow-scrolling: touch;
-    padding:2px 2px 6px;
-    scroll-snap-type: x proximity;
+    grid-column:3;
+    display:flex; gap:6px; align-items:center; flex-wrap:nowrap; overflow:hidden;
   }
   .actions .btn{
-    flex:0 0 auto;
     padding:6px 10px;
-    font-size:13px; line-height:1;
+    font-size:13px;
+    line-height:1;
     border-radius:11px;
     border-color:var(--stroke);
     background:var(--panel-tint);
     color:var(--muted);
-    min-height:34px;
+    min-height:34px;       /* kompakter */
     font-weight:500;
-    scroll-snap-align: start;
   }
-  .actions::-webkit-scrollbar{ display:none }
+  #infoBtn{ /* Info wie tiny-Chip behandeln */
+    background:var(--panel-tint);
+  }
 
-  /* Segmented Range – kompakter */
+  /* Segmented Range – weniger „fett“ */
   .range{ gap:4px; padding:3px; border-radius:14px }
   .btn.seg{
     padding:7px 10px;
@@ -354,7 +338,7 @@ textarea[readonly]{ opacity:.95; }
     font-weight:500;
   }
   .btn.seg[aria-selected="true"]{
-    background:color-mix(in oklab, var(--fg) 92%, transparent);
+    background:color-mix(in oklab, var(--fg) 92%, transparent); /* etwas softer */
     color:var(--panel);
   }
 
@@ -374,7 +358,9 @@ textarea[readonly]{ opacity:.95; }
   .btn{ min-height:40px }
 
   /* Dialoge kompakter, viewport-sicher */
-  .modal-card{ width:min(720px, 96vw); border-radius:18px }
+  .modal-card{ width:min(720px, 96vw); margin:0 auto; border-radius:18px }
+  .modal-body{ padding:12px }
+  .modal-foot{ padding:12px }
 
   /* Sidebar etwas schmaler */
   .sidebar{ width:min(86vw, 320px) }
