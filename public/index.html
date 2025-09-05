@@ -454,45 +454,65 @@
         window.addEventListener('focusout', () => setTimeout(applyVVTop, 60)); // nach Keyboard-Schließen
         document.addEventListener('visibilitychange', applyVVTop, {passive:true});
       })();
-      // --- Topbar "heilig": VisualViewport-Offset + Topbar-Höhe messen ---
-       (function(){
-         function setCssVar(name, val){
-           document.documentElement.style.setProperty(name, String(val));
-         }
-         function applyVVTop(){
-           const vv = window.visualViewport;
-           const top = vv ? Math.max(0, Math.round(vv.offsetTop || 0)) : 0;
-           setCssVar('--vv-top', top + 'px');
-         }
-         function measureTopbar(){
-           const el = document.querySelector('.topbar');
-           if (!el) return;
-           const h = Math.round(el.getBoundingClientRect().height);
-           setCssVar('--topbar-h', h + 'px');
-         }
-         function syncLayout(){
-           applyVVTop();
-           requestAnimationFrame(measureTopbar);
-         }
-         // initial
-         syncLayout();
-         // reagieren auf URL-Bar / Keyboard / Rotate
-         if (window.visualViewport){
-           visualViewport.addEventListener('resize', syncLayout);
-           visualViewport.addEventListener('scroll', syncLayout);
-         }
-         window.addEventListener('orientationchange', syncLayout);
-         window.addEventListener('resize', syncLayout);
-         window.addEventListener('focusin', syncLayout);
-         window.addEventListener('focusout', () => setTimeout(syncLayout, 60));
-         document.addEventListener('visibilitychange', syncLayout, {passive:true});
-         // falls Topbar-Inhalt umbricht
-         const elTop = document.querySelector('.topbar');
-         if (elTop){
-           const mo = new MutationObserver(syncLayout);
-           mo.observe(elTop, {childList:true, subtree:true, attributes:true});
-         }
-       })();
   </script>
+      <script>
+      // --- iOS: jankfreie Topbar mit gedrosselten Updates ---
+      (function(){
+        const RAF = fn => (window.requestAnimationFrame || setTimeout)(fn, 16);
+
+        let vvTopLast = -1;
+        let rafPending = false;
+
+        function setVar(name, val){ document.documentElement.style.setProperty(name, val); }
+
+        // 1) Nur --vv-top häufig updaten (billig & gedrosselt)
+        function updateVVTop(){
+          if (rafPending) return;
+          rafPending = true;
+          RAF(()=>{
+            rafPending = false;
+            const vv = window.visualViewport;
+            const top = vv ? Math.max(0, Math.round(vv.offsetTop || 0)) : 0;
+            if (top !== vvTopLast){
+              vvTopLast = top;
+              setVar('--vv-top', top + 'px');
+            }
+          });
+        }
+
+        // 2) --topbar-h nur selten messen (kein Trigger auf jeden VV-Tick)
+        function measureTopbarHeight(){
+          // einmal im nächsten Frame messen (Layout stabil)
+          RAF(()=>{
+            const el = document.querySelector('.topbar');
+            if (!el) return;
+            const h = Math.round(el.getBoundingClientRect().height);
+            setVar('--topbar-h', h + 'px');
+          });
+        }
+
+        // init
+        updateVVTop();
+        measureTopbarHeight();
+
+        // Events: VV → nur --vv-top; Layout-Events → Höhe neu
+        if (window.visualViewport){
+          visualViewport.addEventListener('resize', updateVVTop, {passive:true});
+          visualViewport.addEventListener('scroll', updateVVTop, {passive:true});
+        }
+        window.addEventListener('orientationchange', ()=>{ updateVVTop(); measureTopbarHeight(); }, {passive:true});
+        window.addEventListener('resize',            ()=>{ updateVVTop(); measureTopbarHeight(); }, {passive:true});
+        window.addEventListener('focusin',           updateVVTop, {passive:true});
+        window.addEventListener('focusout',          ()=>{ setTimeout(updateVVTop, 60); }, {passive:true});
+        document.addEventListener('visibilitychange',updateVVTop, {passive:true});
+
+        // Bei echtem Layout-Wechsel (z.B. Brand 2-zeilig, Buttons ändern)
+        const top = document.querySelector('.topbar');
+        if (top){
+          const mo = new MutationObserver(()=> measureTopbarHeight());
+          mo.observe(top, {childList:true, subtree:true, attributes:true});
+        }
+      })();
+      </script>
 </body>
 </html>
