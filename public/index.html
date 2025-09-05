@@ -435,25 +435,7 @@
       document.getElementById("pinInput")?.addEventListener("keydown", e=>{ if (e.key === "Enter") checkPin(); });
       document.getElementById("logoutBtn")?.addEventListener("click", logout);
     });
-      // --- iOS Statusbar „heilig“ machen: VisualViewport → CSS-Var --vv-top ---
-      (function(){
-        function applyVVTop(){
-          const vv = window.visualViewport;
-          const top = vv ? Math.max(0, Math.round(vv.offsetTop || 0)) : 0;
-          document.documentElement.style.setProperty('--vv-top', top + 'px');
-        }
-        // beim Start
-        applyVVTop();
-        // reagieren auf Keyboard/URL-Bar/Rotate
-        if (window.visualViewport){
-          visualViewport.addEventListener('resize', applyVVTop);
-          visualViewport.addEventListener('scroll', applyVVTop);
-        }
-        window.addEventListener('orientationchange', applyVVTop);
-        window.addEventListener('focusin', applyVVTop);
-        window.addEventListener('focusout', () => setTimeout(applyVVTop, 60)); // nach Keyboard-Schließen
-        document.addEventListener('visibilitychange', applyVVTop, {passive:true});
-      })();
+
 
       // --- iOS: jankfreie Topbar mit gedrosselten Updates ---
       (function(){
