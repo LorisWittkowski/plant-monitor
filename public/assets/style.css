@@ -57,13 +57,13 @@ a{ color:inherit; text-decoration:none }
 
 /* ===== Topbar (sticky) ===== */
 .topbar{
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  background: var(--bg);
-  border-bottom: 1px solid var(--stroke);
-  color: var(--fg);
-  padding-top: env(safe-area-inset-top); /* Safe-Area gehört zur Topbar */
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--bg);
+    border-bottom: 1px solid var(--stroke);
+    color: var(--fg);
+    padding-top: calc(env(safe-area-inset-top) + var(--vv-top, 0px));
 }
 .topbar-inner{ display:flex; justify-content:space-between; align-items:center }
 
