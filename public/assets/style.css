@@ -42,6 +42,14 @@ body{
   background:var(--bg);
   color:var(--fg);
 }
+/* stabile Höhe (nutzt echte Viewport-Höhe aus --vhpx) */
+html{ height: -webkit-fill-available; }
+body{
+  min-height: var(--vhpx, 100dvh);
+  min-height: -webkit-fill-available; /* iOS Fallback */
+  overscroll-behavior-y: contain;     /* verhindert "unter Statusleiste ziehen" */
+}
+
 /* iOS: stabile Höhe, keine Sprünge beim Keyboard */
 html{ height: -webkit-fill-available; }
 body{
@@ -51,11 +59,18 @@ body{
 
 /* ===== Login: Safe-Area oben/unten ===== */
 #lockScreen{
-    min-height: 100dvh;
+  /* Höhe = echte Viewporthöhe abzüglich Safe-Area */
+  min-height: calc(var(--vhpx, 100dvh) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+
   /* dein inline padding:40px bleibt für L/R/U, hier addieren wir die Notch dazu */
   padding-top: calc(40px + env(safe-area-inset-top));
   padding-bottom: calc(40px + env(safe-area-inset-bottom));
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* optional: vertikal zentrieren */
 }
+
 
 a{ color:inherit; text-decoration:none }
 .text-danger{ color:var(--danger) }

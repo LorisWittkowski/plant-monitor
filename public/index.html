@@ -30,6 +30,31 @@
 
 
         <link rel="stylesheet" href="/assets/anim.css?v=2" />
+        
+        <script>
+          // schreibt die echte Viewport-Höhe in --vhpx (in px)
+          (function setVH(){
+            function updateVH(){
+              const vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
+              document.documentElement.style.setProperty('--vhpx', vh + 'px');
+              // nach Keyboard-Schließen kurz oben verankern (ios-safari-scroll-fix)
+              if (document.activeElement === document.body && window.scrollY > 0) {
+                window.scrollTo(0,0);
+              }
+            }
+            updateVH();
+            const vv = window.visualViewport;
+            if (vv){
+              vv.addEventListener('resize', updateVH, {passive:true});
+              vv.addEventListener('scroll', updateVH, {passive:true}); // iOS feuert hier beim Keyboard
+            }
+            window.addEventListener('orientationchange', ()=> setTimeout(updateVH, 50), {passive:true});
+            window.addEventListener('pageshow', updateVH, {passive:true});
+            window.addEventListener('focusout', ()=> setTimeout(updateVH, 50), {passive:true});
+          })();
+        </script>
+
+        
     </head>
 <body class="safe-bottom">
   <!-- 🔒 Login -->
