@@ -42,8 +42,16 @@ body{
   background:var(--bg);
   color:var(--fg);
 }
+/* iOS: stabile Höhe, keine Sprünge beim Keyboard */
+html{ height: -webkit-fill-available; }
+body{
+  min-height: 100dvh;
+  min-height: -webkit-fill-available; /* iOS Fallback */
+}
+
 /* ===== Login: Safe-Area oben/unten ===== */
 #lockScreen{
+    min-height: 100dvh;
   /* dein inline padding:40px bleibt für L/R/U, hier addieren wir die Notch dazu */
   padding-top: calc(40px + env(safe-area-inset-top));
   padding-bottom: calc(40px + env(safe-area-inset-bottom));
@@ -73,6 +81,8 @@ a{ color:inherit; text-decoration:none }
   background: var(--bg);
   border-bottom: 1px solid var(--stroke);
   color: var(--fg);
+  will-change: transform;
+  transform: translateZ(0);
 
   /* wichtig: Safe-Area gehört zur Topbar, nicht zum Body */
   padding-top: env(safe-area-inset-top);
