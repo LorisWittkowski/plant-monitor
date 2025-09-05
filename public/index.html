@@ -71,7 +71,7 @@
     </div>
 
     <!-- 🌿 App (hidden bis Login) -->
-    <div id="app" hidden>
+    <div id="app" hidden inert>
       <!-- Sticky Topbar -->
       <header class="topbar">
         <div class="container topbar-inner">
@@ -349,16 +349,30 @@
         const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
         return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
       }
-      async function unlock(){
-        localStorage.setItem("plantLoggedIn","1");
-        setVisible(document.getElementById("lockScreen"), false);
-        setVisible(document.getElementById("app"), true);
-        document.body.classList.remove('locked');
-        window.scrollTo(0,0);
-        window.dispatchEvent(new Event('plant:unlocked'));
-        await loadScript("https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js");
-        await loadScript("/assets/app.js");
-      }
+        async function unlock(){
+          localStorage.setItem("plantLoggedIn","1");
+
+          // App sichtbar + benutzbar machen
+          const app = document.getElementById("app");
+          app?.removeAttribute("hidden");
+          app?.removeAttribute("inert");
+
+          // Login-Overlay vollständig entfernen
+          const lock = document.getElementById("lockScreen");
+          if (lock) lock.remove();
+
+          // Body wieder freigeben + sicherheitshalber nach oben
+          document.body.classList.remove('locked');
+          window.scrollTo(0,0);
+
+          // Event für nachgelagerte Fixes
+          window.dispatchEvent(new Event('plant:unlocked'));
+
+          // jetzt erst Scripts laden
+          await loadScript("https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js");
+          await loadScript("/assets/app.js");
+        }
+
       async function checkPin(){
         const val = (document.getElementById("pinInput").value || "").trim();
         if (!val) return;
@@ -371,12 +385,32 @@
 
       window.addEventListener("DOMContentLoaded", ()=>{
         const logged = localStorage.getItem("plantLoggedIn") === "1";
-        if (logged) unlock();
+
+        // Login-Zustand anwenden
         document.body.classList.toggle('locked', !logged);
+
+        // App standardmäßig inert + hidden (falls HTML nicht schon so ausliefert)
+        const app = document.getElementById("app");
+        if (!logged) {
+          app?.setAttribute('hidden','');
+          app?.setAttribute('inert','');
+        } else {
+          // schon eingeloggt → Login-Overlay weg, App frei
+          document.getElementById("lockScreen")?.remove();
+          app?.removeAttribute('hidden');
+          app?.removeAttribute('inert');
+        }
+
+        if (logged) {
+          // wenn schon eingeloggt, Rest laden
+          unlock();
+        }
+
         document.getElementById("pinBtn")?.addEventListener("click", checkPin);
         document.getElementById("pinInput")?.addEventListener("keydown", e=>{ if (e.key === "Enter") checkPin(); });
         document.getElementById("logoutBtn")?.addEventListener("click", logout);
       });
+
 
       // iOS Sticky-Topbar Guard (sanft)
       (function iosStickyGuard(){
