@@ -58,8 +58,6 @@ a{ color:inherit; text-decoration:none }
 main.container.stack{
   padding-top: calc(var(--topbar-h, 72px) + 8px);
 }
-/* ===== Topbar (sticky) ===== */
-/* ===== Topbar (fixed – „heilig“) ===== */
 /* ===== Topbar (fixed – „heilig“) ===== */
 .topbar{
   position: fixed;
@@ -68,17 +66,28 @@ main.container.stack{
   background: var(--bg);
   border-bottom: 1px solid var(--stroke);
   color: var(--fg);
-  padding-top: calc(env(safe-area-inset-top) + var(--vv-top, 0px)); /* Notch + URL/Keyboard-Offset */
-  will-change: padding-top;
+
+  /* Notch + dynamischer iOS-Offset */
+  padding-top: calc(env(safe-area-inset-top) + var(--vv-top, 0px));
+
+  /* Jank-Killer: eigener Compositing-Context & Layout-Isolation */
+  will-change: padding-top, transform;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  contain: layout paint size;
 }
 
 .topbar-inner{
   display:flex;
   justify-content:space-between;
   align-items:center;
-  min-height:56px; /* Chip-Zeile kann zweizeilig werden */
+  min-height:56px;
 }
 
+/* Platz unter der fixen Topbar – nur selten ändern wir --topbar-h via JS */
+main.container.stack{
+  padding-top: calc(var(--topbar-h, 72px) + 8px);
+}
 /* Brand / Header */
 .brand{
   font-size:24px;
