@@ -1,13 +1,34 @@
 <!doctype html>
 <html lang="de">
-    <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-        <title>Plant Monitor</title>
-        <link rel="stylesheet" href="/assets/style.css" />
-        <link rel="stylesheet" href="/assets/anim.css?v=2" />
-    </head>
-<body class="safe-top safe-bottom">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Plant Monitor</title>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="/assets/style.css" />
+  <link rel="stylesheet" href="/assets/anim.css" />
+
+  <!-- iOS Home Screen Icons (180 / 167, mit Light/Dark und Fallback) -->
+  <link rel="apple-touch-icon" href="/apple-touch-icon-180.png" sizes="180x180" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon-180-light.png" sizes="180x180" media="(prefers-color-scheme: light)" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon-180-dark.png" sizes="180x180" media="(prefers-color-scheme: dark)" />
+
+  <link rel="apple-touch-icon" href="/apple-touch-icon-167.png" sizes="167x167" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon-167-light.png" sizes="167x167" media="(prefers-color-scheme: light)" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon-167-dark.png" sizes="167x167" media="(prefers-color-scheme: dark)" />
+
+  <meta name="apple-mobile-web-app-title" content="Plant Monitor" />
+
+  <!-- iOS PWA Statusbar -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <!-- Browser-/Tab-UI Farbe (statisch per Media); dynamisch setzt app.js zusätzlich ohne media -->
+  <meta name="theme-color" content="#f5f6f7" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#121416" media="(prefers-color-scheme: dark)" />
+</head>
+<body class="safe-bottom">
   <!-- 🔒 Login -->
   <div id="lockScreen" class="container" style="padding:40px;max-width:480px">
     <h2 class="brand" style="margin-bottom:12px">🔒 Plant Monitor Login</h2>
@@ -33,10 +54,10 @@
           <button id="arduinoBtn" class="btn tiny hide-mobile" type="button" title="Arduino-Code Generator">Arduino</button>
           <button id="logoutBtn" class="btn tiny hide-mobile" type="button" aria-label="Logout">Logout</button>
 
-          <!-- Mobile: sichtbar -->
+          <!-- Theme -->
           <button id="themeToggle" class="btn tiny" type="button" aria-label="Theme umschalten">Dark</button>
 
-          <!-- Kalibrieren mit Fallback auf globale API -->
+          <!-- Kalibrieren -->
           <button id="calibBtn"
                   class="btn primary"
                   type="button"
@@ -175,7 +196,7 @@
       </div>
     </dialog>
 
-    <!-- 🔧 Kalibrierung (FEHLTE ZUVOR) -->
+    <!-- 🔧 Kalibrierung -->
     <dialog id="calibModal" class="modal">
       <div class="modal-card">
         <header class="modal-head">
@@ -261,7 +282,7 @@
               <div id="info_size">—</div>
             </div>
 
-            <!-- Pin-Einstellung direkt im Info-Dialog -->
+            <!-- Pin-Einstellung -->
             <label class="field">
               <span class="label">Analog-Pin (UNO R4)</span>
               <select id="info_pin" class="input">
@@ -320,7 +341,7 @@
       </div>
     </dialog>
 
-    <!-- 🛠️ Arduino Code Generator (Pins read-only) -->
+    <!-- 🛠️ Arduino Code Generator -->
     <dialog id="arduinoModal" class="modal">
       <div class="modal-card">
         <header class="modal-head">
