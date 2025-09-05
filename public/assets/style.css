@@ -59,7 +59,7 @@ main.container.stack{
   padding-top: calc(var(--topbar-h, 72px) + 8px);
 }
 /* ===== Topbar (fixed – „heilig“) ===== */
-.topbar{
+.topbar {
   position: fixed;
   top: 0; left: 0; right: 0;
   z-index: 100;
@@ -67,25 +67,25 @@ main.container.stack{
   border-bottom: 1px solid var(--stroke);
   color: var(--fg);
 
-  /* Notch + dynamischer iOS-Offset */
+  /* Notch + iOS-Offset */
   padding-top: calc(env(safe-area-inset-top) + var(--vv-top, 0px));
 
-  /* Jank-Killer: eigener Compositing-Context & Layout-Isolation */
+  /* Fix für iOS Jank */
   will-change: padding-top, transform;
   backface-visibility: hidden;
   transform: translateZ(0);
   contain: layout paint size;
 }
 
-.topbar-inner{
+.topbar-inner {
   display:flex;
   justify-content:space-between;
   align-items:center;
   min-height:56px;
 }
 
-/* Platz unter der fixen Topbar – nur selten ändern wir --topbar-h via JS */
-main.container.stack{
+/* Content Abstand unter der Topbar */
+main.container.stack {
   padding-top: calc(var(--topbar-h, 72px) + 8px);
 }
 /* Brand / Header */
