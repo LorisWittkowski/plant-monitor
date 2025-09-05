@@ -454,52 +454,45 @@
         window.addEventListener('focusout', () => setTimeout(applyVVTop, 60)); // nach Keyboard-Schließen
         document.addEventListener('visibilitychange', applyVVTop, {passive:true});
       })();
-  // --- Topbar "heilig": VisualViewport-Offset + Topbar-Höhe messen ---
-  (function(){
-    function setCssVar(name, val){
-      document.documentElement.style.setProperty(name, String(val));
-    }
-
-    function applyVVTop(){
-      const vv = window.visualViewport;
-      const top = vv ? Math.max(0, Math.round(vv.offsetTop || 0)) : 0;
-      setCssVar('--vv-top', top + 'px');
-    }
-
-    function measureTopbar(){
-      // Höhe inkl. Safe-Area/Offset (nach Layout!)
-      const el = document.querySelector('.topbar');
-      if (!el) return;
-      // getBoundingClientRect() ist stabiler bei iOS-Viewport-Änderungen
-      const h = Math.round(el.getBoundingClientRect().height);
-      // kleine Unterkante dazu, damit nichts kollidiert
-      setCssVar('--topbar-h', h + 'px');
-    }
-
-    function syncLayout(){
-      applyVVTop();
-      // Nach dem Setzen des Offsets kurz warten, bis Layout durch ist
-      requestAnimationFrame(measureTopbar);
-    }
-
-    // initial
-    syncLayout();
-
-    // reagieren auf URL-Bar / Keyboard / Rotate
-    if (window.visualViewport){
-      visualViewport.addEventListener('resize', syncLayout);
-      visualViewport.addEventListener('scroll', syncLayout);
-    }
-    window.addEventListener('orientationchange', syncLayout);
-    window.addEventListener('resize', syncLayout);
-    window.addEventListener('focusin', syncLayout);
-    window.addEventListener('focusout', () => setTimeout(syncLayout, 60));
-    document.addEventListener('visibilitychange', syncLayout, {passive:true});
-
-    // Wenn dein Theme wechselt oder Buttons/Chips umbrechen:
-    const mo = new MutationObserver(syncLayout);
-    mo.observe(document.querySelector('.topbar'), {childList:true, subtree:true, attributes:true});
-  })();
+      // --- Topbar "heilig": VisualViewport-Offset + Topbar-Höhe messen ---
+       (function(){
+         function setCssVar(name, val){
+           document.documentElement.style.setProperty(name, String(val));
+         }
+         function applyVVTop(){
+           const vv = window.visualViewport;
+           const top = vv ? Math.max(0, Math.round(vv.offsetTop || 0)) : 0;
+           setCssVar('--vv-top', top + 'px');
+         }
+         function measureTopbar(){
+           const el = document.querySelector('.topbar');
+           if (!el) return;
+           const h = Math.round(el.getBoundingClientRect().height);
+           setCssVar('--topbar-h', h + 'px');
+         }
+         function syncLayout(){
+           applyVVTop();
+           requestAnimationFrame(measureTopbar);
+         }
+         // initial
+         syncLayout();
+         // reagieren auf URL-Bar / Keyboard / Rotate
+         if (window.visualViewport){
+           visualViewport.addEventListener('resize', syncLayout);
+           visualViewport.addEventListener('scroll', syncLayout);
+         }
+         window.addEventListener('orientationchange', syncLayout);
+         window.addEventListener('resize', syncLayout);
+         window.addEventListener('focusin', syncLayout);
+         window.addEventListener('focusout', () => setTimeout(syncLayout, 60));
+         document.addEventListener('visibilitychange', syncLayout, {passive:true});
+         // falls Topbar-Inhalt umbricht
+         const elTop = document.querySelector('.topbar');
+         if (elTop){
+           const mo = new MutationObserver(syncLayout);
+           mo.observe(elTop, {childList:true, subtree:true, attributes:true});
+         }
+       })();
   </script>
 </body>
 </html>
