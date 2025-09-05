@@ -32,9 +32,9 @@
 <body class="safe-bottom">
   <!-- 🔒 Login -->
   <div id="lockScreen" class="container" style="padding:40px;max-width:480px">
-    <h2 class="brand" style="margin-bottom:12px">🔒 Plant Monitor Login</h2>
+    <h2 class="brand" style="margin-bottom:12px">Plant Monitor Login</h2>
     <label class="field">
-      <span class="label">PIN</span>
+      <span class="label">Passwort</span>
       <input id="pinInput" class="input" type="password" inputmode="numeric" placeholder="PIN eingeben" />
     </label>
     <div style="display:flex; gap:8px; align-items:center; margin-top:10px">
@@ -396,7 +396,7 @@
   <script>
     // PIN = "water" (SHA-256)
     const USE_HASH = false;
-    const PIN_PLAINTEXT = "water";
+    const PIN_PLAINTEXT = "6669";
     const PIN_HASH = "3ad843de61d1d6d13b3ee863d07be4c6569d7b0c3f9cfdfad3a86e0d94369a6a";
 
     function setVisible(el, on){ if (el) el.hidden = !on; }
@@ -454,6 +454,52 @@
         window.addEventListener('focusout', () => setTimeout(applyVVTop, 60)); // nach Keyboard-Schließen
         document.addEventListener('visibilitychange', applyVVTop, {passive:true});
       })();
+  // --- Topbar "heilig": VisualViewport-Offset + Topbar-Höhe messen ---
+  (function(){
+    function setCssVar(name, val){
+      document.documentElement.style.setProperty(name, String(val));
+    }
+
+    function applyVVTop(){
+      const vv = window.visualViewport;
+      const top = vv ? Math.max(0, Math.round(vv.offsetTop || 0)) : 0;
+      setCssVar('--vv-top', top + 'px');
+    }
+
+    function measureTopbar(){
+      // Höhe inkl. Safe-Area/Offset (nach Layout!)
+      const el = document.querySelector('.topbar');
+      if (!el) return;
+      // getBoundingClientRect() ist stabiler bei iOS-Viewport-Änderungen
+      const h = Math.round(el.getBoundingClientRect().height);
+      // kleine Unterkante dazu, damit nichts kollidiert
+      setCssVar('--topbar-h', h + 'px');
+    }
+
+    function syncLayout(){
+      applyVVTop();
+      // Nach dem Setzen des Offsets kurz warten, bis Layout durch ist
+      requestAnimationFrame(measureTopbar);
+    }
+
+    // initial
+    syncLayout();
+
+    // reagieren auf URL-Bar / Keyboard / Rotate
+    if (window.visualViewport){
+      visualViewport.addEventListener('resize', syncLayout);
+      visualViewport.addEventListener('scroll', syncLayout);
+    }
+    window.addEventListener('orientationchange', syncLayout);
+    window.addEventListener('resize', syncLayout);
+    window.addEventListener('focusin', syncLayout);
+    window.addEventListener('focusout', () => setTimeout(syncLayout, 60));
+    document.addEventListener('visibilitychange', syncLayout, {passive:true});
+
+    // Wenn dein Theme wechselt oder Buttons/Chips umbrechen:
+    const mo = new MutationObserver(syncLayout);
+    mo.observe(document.querySelector('.topbar'), {childList:true, subtree:true, attributes:true});
+  })();
   </script>
 </body>
 </html>
