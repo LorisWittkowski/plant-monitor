@@ -45,9 +45,12 @@ body{
 /* ===== Login: Safe-Area oben/unten ===== */
 #lockScreen{
   /* dein inline padding:40px bleibt für L/R/U, hier addieren wir die Notch dazu */
-  padding-top: calc(40px + env(safe-area-inset-top));
-  padding-bottom: calc(40px + env(safe-area-inset-bottom));
-}
+  /* stabile Viewport-Höhe auf iOS (auch mit Tastatur) */
+  #lockScreen{
+    min-height: 100dvh;          /* „dynamic viewport height“ (Safari 15+) */
+    display: block;
+  }
+
 
 a{ color:inherit; text-decoration:none }
 .text-danger{ color:var(--danger) }
