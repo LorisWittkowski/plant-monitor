@@ -52,6 +52,7 @@ body.locked {
   padding-bottom: calc(40px + env(safe-area-inset-bottom));
   background: var(--bg);
   position: relative;
+  pointer-events: auto;
   z-index: 200;
   display: flex;
   flex-direction: column;
