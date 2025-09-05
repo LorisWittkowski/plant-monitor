@@ -92,6 +92,7 @@ html:not(.overlay-status) .topbar{
   justify-content:space-between;
   align-items:center;
   min-height:56px;
+  padding: 0 12px;
 }
 
 /* Brand / Header */
