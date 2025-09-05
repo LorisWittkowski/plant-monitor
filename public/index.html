@@ -406,8 +406,11 @@
           unlock();
         }
 
-        document.getElementById("pinBtn")?.addEventListener("click", checkPin);
-        document.getElementById("pinInput")?.addEventListener("keydown", e=>{ if (e.key === "Enter") checkPin(); });
+        const pinBtn = document.getElementById("pinBtn");
+        const pinInput = document.getElementById("pinInput");
+        if (pinBtn) pinBtn.onclick = checkPin;      // robuster als addEventListener bei manchen WKWebView-Embeds
+        if (pinInput) pinInput.onkeydown = (e)=>{ if (e.key === "Enter") checkPin(); };
+ });
         document.getElementById("logoutBtn")?.addEventListener("click", logout);
       });
 
