@@ -71,7 +71,19 @@ const ALLOWED_PINS = ["A0","A1","A2","A3","A4","A5"];
   const t = saved || (prefers ? "dark":"light");
   document.documentElement.setAttribute("data-theme", t);
   updateThemeButtonLabel();
+    setThemeColorFromCSS();
 })();
+
+function setThemeColorFromCSS(){
+  // finde oder erzeuge <meta name="theme-color">
+  let m = document.querySelector('meta[name="theme-color"]:not([media])');
+  if (!m){ m = document.createElement('meta'); m.setAttribute('name','theme-color'); document.head.appendChild(m); }
+  // CSS-Variable --bg lesen und setzen
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#121416';
+  m.setAttribute('content', bg);
+}
+
+
 function updateThemeButtonLabel(){
   const cur = document.documentElement.getAttribute("data-theme");
   if (els.themeToggle) els.themeToggle.textContent = (cur === "dark" ? "Light" : "Dark");
@@ -82,6 +94,7 @@ els.themeToggle?.addEventListener("click", ()=>{
   document.documentElement.setAttribute("data-theme", next);
   localStorage.setItem("theme", next);
   updateThemeButtonLabel();
+    setThemeColorFromCSS();
   if (chart) chart.update();
 });
 
