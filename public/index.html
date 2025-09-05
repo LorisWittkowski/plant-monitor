@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Plant Monitor</title>
 
-  <!-- Styles -->
+  <!-- Base CSS -->
   <link rel="stylesheet" href="/assets/style.css" />
+  <!-- Optional Animations (separate Datei) -->
   <link rel="stylesheet" href="/assets/anim.css" />
 
-  <!-- iOS Home Screen Icons (180 / 167, mit Light/Dark und Fallback) -->
+  <!-- iOS Home Screen Icons (180/167, Fallback + Light/Dark) -->
   <link rel="apple-touch-icon" href="/apple-touch-icon-180.png" sizes="180x180" />
   <link rel="apple-touch-icon" href="/apple-touch-icon-180-light.png" sizes="180x180" media="(prefers-color-scheme: light)" />
   <link rel="apple-touch-icon" href="/apple-touch-icon-180-dark.png" sizes="180x180" media="(prefers-color-scheme: dark)" />
@@ -24,7 +25,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
-  <!-- Browser-/Tab-UI Farbe (statisch per Media); dynamisch setzt app.js zusätzlich ohne media -->
+  <!-- Browser-/Tab-UI Farbe (Light/Dark per Media) -->
   <meta name="theme-color" content="#f5f6f7" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#121416" media="(prefers-color-scheme: dark)" />
 </head>
@@ -54,10 +55,10 @@
           <button id="arduinoBtn" class="btn tiny hide-mobile" type="button" title="Arduino-Code Generator">Arduino</button>
           <button id="logoutBtn" class="btn tiny hide-mobile" type="button" aria-label="Logout">Logout</button>
 
-          <!-- Theme -->
+          <!-- Mobile: sichtbar -->
           <button id="themeToggle" class="btn tiny" type="button" aria-label="Theme umschalten">Dark</button>
 
-          <!-- Kalibrieren -->
+          <!-- Kalibrieren mit Fallback auf globale API -->
           <button id="calibBtn"
                   class="btn primary"
                   type="button"
@@ -282,7 +283,7 @@
               <div id="info_size">—</div>
             </div>
 
-            <!-- Pin-Einstellung -->
+            <!-- Pin-Einstellung direkt im Info-Dialog -->
             <label class="field">
               <span class="label">Analog-Pin (UNO R4)</span>
               <select id="info_pin" class="input">
@@ -341,7 +342,7 @@
       </div>
     </dialog>
 
-    <!-- 🛠️ Arduino Code Generator -->
+    <!-- 🛠️ Arduino Code Generator (Pins read-only) -->
     <dialog id="arduinoModal" class="modal">
       <div class="modal-card">
         <header class="modal-head">
