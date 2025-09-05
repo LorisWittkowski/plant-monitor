@@ -520,5 +520,48 @@
       });
     })();
   </script>
+  <script>
+  (() => {
+    const KEY = 'pm-theme';
+    const root = document.documentElement;
+
+    function applyTheme(mode) {
+      if (mode === 'dark') root.setAttribute('data-theme', 'dark');
+      else root.removeAttribute('data-theme');
+
+      // Button-Label
+      const btn = document.getElementById('themeToggle');
+      if (btn) btn.textContent = (mode === 'dark') ? 'Light' : 'Dark';
+
+      // theme-color an --bg koppeln (für iOS/Android UI)
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) {
+        const bg = getComputedStyle(root).getPropertyValue('--bg').trim() || '#121416';
+        meta.setAttribute('content', bg);
+      }
+    }
+
+    function currentMode() {
+      const saved = localStorage.getItem(KEY);
+      if (saved === 'dark' || saved === 'light') return saved;
+      return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+
+    function init() {
+      applyTheme(currentMode());
+      const btn = document.getElementById('themeToggle');
+      if (btn) {
+        btn.addEventListener('click', () => {
+          const next = (root.getAttribute('data-theme') === 'dark') ? 'light' : 'dark';
+          localStorage.setItem(KEY, next);
+          applyTheme(next);
+        }, { passive: true });
+      }
+    }
+
+    // sofort nach DOM bereit
+    document.addEventListener('DOMContentLoaded', init);
+  })();
+  </script>
 </body>
 </html>
