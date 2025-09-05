@@ -454,8 +454,7 @@
         window.addEventListener('focusout', () => setTimeout(applyVVTop, 60)); // nach Keyboard-Schließen
         document.addEventListener('visibilitychange', applyVVTop, {passive:true});
       })();
-  </script>
-      <script>
+
       // --- iOS: jankfreie Topbar mit gedrosselten Updates ---
       (function(){
         const RAF = fn => (window.requestAnimationFrame || setTimeout)(fn, 16);
