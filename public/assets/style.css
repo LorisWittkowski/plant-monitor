@@ -49,7 +49,6 @@ a{ color:inherit; text-decoration:none }
 
 /* ===== Utility ===== */
 .hide-mobile{ display:inline-flex }
-.safe-top{ padding-top: max(0px, env(safe-area-inset-top)) }
 .safe-bottom{ padding-bottom: max(0px, env(safe-area-inset-bottom)) }
 
 /* ===== Containers ===== */
@@ -64,8 +63,7 @@ a{ color:inherit; text-decoration:none }
   background: var(--bg);
   border-bottom: 1px solid var(--stroke);
   color: var(--fg);
-  /* Safe-Area gehört zur Topbar, damit sie beim Scrollen nicht unter die Statusleiste rutscht */
-  padding-top: env(safe-area-inset-top);
+  padding-top: env(safe-area-inset-top); /* Safe-Area gehört zur Topbar */
 }
 .topbar-inner{ display:flex; justify-content:space-between; align-items:center }
 
@@ -125,11 +123,11 @@ select.select{ background-image: none }
   padding:10px 14px;
   border-radius:14px;
   cursor:pointer;
-  transition:filter .15s ease, background .15s ease, color .15s ease, border-color .15s ease;
+  transition:filter .15s ease, background .15s ease, color .15s ease, border-color .15s ease, transform .12s ease;
   min-height:40px;
   font-weight:500;
 
-  /* zentriert Text/Icons perfekt */
+  /* saubere Zentrierung */
   display:inline-flex;
   align-items:center;
   justify-content:center;
@@ -306,7 +304,7 @@ textarea[readonly]{ opacity:.95; }
   html, body{ overscroll-behavior-y:none }
   .container{ padding:12px 12px max(12px, env(safe-area-inset-bottom)) }
 
-  /* Topbar → 2 Reihen: 1) Brand 2) Chip-Leiste (scrollbar) */
+  /* Topbar → 2-zeilig: 1) Brand  2) Actions-Scroller */
   .topbar-inner{
     display:grid;
     grid-template-columns: 44px 1fr 44px;
@@ -316,6 +314,7 @@ textarea[readonly]{ opacity:.95; }
     padding:8px 8px;
   }
 
+  /* Brand in Reihe 1 */
   .brand{
     grid-column:2;
     grid-row:1;
@@ -326,7 +325,7 @@ textarea[readonly]{ opacity:.95; }
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
 
-  .hide-mobile{ display:none !important }
+  /* Chip-Leiste: horizontal scrollend */
   .actions{
     grid-column:1 / -1;
     grid-row:2;
@@ -350,7 +349,7 @@ textarea[readonly]{ opacity:.95; }
     font-weight:500;
     scroll-snap-align: start;
   }
-  #infoBtn{ background:var(--panel-tint) }
+  .actions::-webkit-scrollbar{ display:none }
 
   /* Segmented Range – kompakter */
   .range{ gap:4px; padding:3px; border-radius:14px }
@@ -382,8 +381,6 @@ textarea[readonly]{ opacity:.95; }
 
   /* Dialoge kompakter, viewport-sicher */
   .modal-card{ width:min(720px, 96vw); border-radius:18px }
-  .modal-body{ padding:12px }
-  .modal-foot{ padding:12px }
 
   /* Sidebar etwas schmaler */
   .sidebar{ width:min(86vw, 320px) }
