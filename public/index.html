@@ -3,6 +3,7 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-visual" />
+
         <title>Plant Monitor</title>
         <link rel="stylesheet" href="/assets/style.css" />
         <!-- iOS Home Screen Icons -->
@@ -438,28 +439,6 @@
       document.getElementById("pinInput")?.addEventListener("keydown", e=>{ if (e.key === "Enter") checkPin(); });
       document.getElementById("logoutBtn")?.addEventListener("click", logout);
     });
-      // --- iOS Sticky-Topbar Guard (verhindert "Reinrutschen" nach Keyboard) ---
-      (function iosStickyGuard(){
-        const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-        if (!isIOS) return;
-
-        const forceTop = ()=> {
-          // wenn die Seite nach Keyboard-Events leicht versetzt ist: hart nach oben
-          if (window.scrollY > 0) { window.scrollTo(0, 0); }
-        };
-
-        // wenn Tastatur schließt / Viewport sich ändert → kurz danach nach oben
-        window.visualViewport?.addEventListener('resize', ()=> setTimeout(forceTop, 50), {passive:true});
-        window.addEventListener('focusout', ()=> setTimeout(forceTop, 50), {passive:true});
-        window.addEventListener('orientationchange', ()=> setTimeout(forceTop, 100), {passive:true});
-
-        // auch direkt nach dem Unlock noch einmal absichern
-        window.addEventListener('plant:unlocked', ()=> {
-          setTimeout(forceTop, 0);
-          setTimeout(forceTop, 100);
-        });
-      })();
-
   </script>
 </body>
 </html>
