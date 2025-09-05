@@ -412,16 +412,42 @@
       });
 
 
-      // iOS Sticky-Topbar Guard (sanft)
-      (function iosStickyGuard(){
-        const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-        if (!isIOS) return;
-        const forceTop = ()=> { if (window.scrollY > 0) window.scrollTo(0,0); };
-        window.visualViewport?.addEventListener('resize', ()=> setTimeout(forceTop, 50), {passive:true});
-        window.addEventListener('focusout', ()=> setTimeout(forceTop, 50), {passive:true});
-        window.addEventListener('orientationchange', ()=> setTimeout(forceTop, 100), {passive:true});
-        window.addEventListener('plant:unlocked', ()=> { setTimeout(forceTop, 0); setTimeout(forceTop, 100); });
-      })();
-    </script>
-  </body>
-</html>
+        // --- iOS Sticky-Topbar Guard (sanft) ---
+        (function iosStickyGuard(){
+          const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+          const vv = window.visualViewport;
+          if (!isIOS || !vv) return;
+
+          // Baseline-Viewporthöhe (ohne Tastatur)
+          let base = vv.height;
+          let keyboardOpen = false;
+          const KB_DELTA = 150;   // ~ Tastaturhöhe-Schwelle in px
+
+          function onVVChange(){
+            const h = vv.height;
+            const wasOpen = keyboardOpen;
+            keyboardOpen = (base - h) > KB_DELTA;
+
+            // Toolbar ein/aus → Baseline nachführen, solange Tastatur nicht offen
+            if (!keyboardOpen && Math.abs(h - base) > 20) base = h;
+
+            // Nur wenn Tastatur GERADE geschlossen wurde, und wir ohnehin ganz oben sind,
+            // einmal sanft auf 0 nudgen (verhindert "unter die Statusleiste rutschen")
+            if (wasOpen && !keyboardOpen && window.scrollY < 24) {
+              requestAnimationFrame(()=> window.scrollTo({ top: 0, behavior: 'instant' }));
+            }
+          }
+
+          vv.addEventListener('resize', onVVChange, { passive: true });
+          vv.addEventListener('scroll',  onVVChange, { passive: true });
+
+          // Bei Orientierung wechseln wir nur die Baseline, kein Hard-Scroll
+          window.addEventListener('orientationchange', () => {
+            setTimeout(() => { base = vv.height; }, 120);
+          }, { passive: true });
+
+          // Nach erfolgreichem Login einmalig oben andocken (wie bisher)
+          window.addEventListener('plant:unlocked', () => {
+            requestAnimationFrame(() => window.scrollTo(0, 0));
+          });
+        })();
