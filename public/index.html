@@ -443,6 +443,8 @@
       localStorage.setItem("plantLoggedIn","1");
       setVisible(document.getElementById("lockScreen"), false);
       setVisible(document.getElementById("app"), true);
+      document.body.classList.remove('locked');
+      window.scrollTo(0,0); // sicherheitshalber oben andocken
       window.dispatchEvent(new Event('plant:unlocked'));
       await loadScript("https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js");
       await loadScript("/assets/app.js");
@@ -459,6 +461,7 @@
     window.addEventListener("DOMContentLoaded", ()=>{
       const logged = localStorage.getItem("plantLoggedIn") === "1";
       if (logged) unlock();
+      document.body.classList.toggle('locked', !logged);
       document.getElementById("pinBtn")?.addEventListener("click", checkPin, { once:false, passive:true });
       document.getElementById("pinInput")?.addEventListener("keydown", e=>{ if (e.key === "Enter") checkPin(); });
       document.getElementById("logoutBtn")?.addEventListener("click", logout);

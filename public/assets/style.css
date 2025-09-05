@@ -58,17 +58,17 @@ body{
 }
 
 /* ===== Login: Safe-Area oben/unten ===== */
+/* Body darf im Login-Zustand NICHT scrollen */
+body.locked {
+  height: var(--vhpx, 100dvh);
+  overflow: hidden;
+}
+
+/* Login muss den Hintergrund zuverlässig abdecken */
 #lockScreen{
-  /* Höhe = echte Viewporthöhe abzüglich Safe-Area */
-  min-height: calc(var(--vhpx, 100dvh) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-
-  /* dein inline padding:40px bleibt für L/R/U, hier addieren wir die Notch dazu */
-  padding-top: calc(40px + env(safe-area-inset-top));
-  padding-bottom: calc(40px + env(safe-area-inset-bottom));
-
-  display: flex;
-  flex-direction: column;
-  justify-content: center; /* optional: vertikal zentrieren */
+  background: var(--bg);   /* falls App darunter schon gerendert ist */
+  position: relative;
+  z-index: 200;
 }
 
 
