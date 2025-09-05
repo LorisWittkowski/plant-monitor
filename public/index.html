@@ -419,7 +419,6 @@
       localStorage.setItem("plantLoggedIn","1");
       setVisible(document.getElementById("lockScreen"), false);
       setVisible(document.getElementById("app"), true);
-      window.dispatchEvent(new Event('plant:unlocked'));
       await loadScript("https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js");
       await loadScript("/assets/app.js");
     }
