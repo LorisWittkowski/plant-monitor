@@ -232,9 +232,16 @@ textarea[readonly]{ opacity:.95; }
 
 .sidebar-head{
   display:flex; align-items:center; gap:10px;
-  padding:12px 14px; border-bottom:1px solid var(--stroke)
+  padding: calc(12px + env(safe-area-inset-top)) 14px 12px; /* oben + Safe-Area */
+  border-bottom:1px solid var(--stroke);
 }
-.sidebar-foot{ margin-top:auto; padding:12px 14px; border-top:1px solid var(--stroke) }
+
+.sidebar-foot{
+  margin-top:auto;
+  padding:12px 14px calc(12px + env(safe-area-inset-bottom)); /* unten + Safe-Area */
+  border-top:1px solid var(--stroke);
+}
+
 
 .sidebar-overlay{
   position: fixed; inset: 0;
@@ -289,7 +296,7 @@ textarea[readonly]{ opacity:.95; }
   .container{ padding:12px 12px max(12px, env(safe-area-inset-bottom)) }
 
   /* Topbar → 3-Spalten-Grid */
-  .topbar{ padding-top: env(safe-area-inset-top); }
+  .topbar{ padding-top: 0; }
   .topbar-inner{
     /* 2 Reihen: 1) Brand-Zeile  2) Actions-Scroller */
     display:grid;
