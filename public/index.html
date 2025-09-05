@@ -432,7 +432,7 @@
             if (!keyboardOpen && Math.abs(h - base) > 20) base = h;
 
             // Nur wenn Tastatur GERADE geschlossen wurde, und wir ohnehin ganz oben sind,
-            // einmal sanft auf 0 nudgen (verhindert "unter d ie Statusleiste rutschen")
+            // einmal sanft auf 0 nudgen (verhindert "unter die Statusleiste rutschen")
             if (wasOpen && !keyboardOpen && window.scrollY < 24) {
               requestAnimationFrame(()=> window.scrollTo({ top: 0, behavior: 'instant' }));
             }
