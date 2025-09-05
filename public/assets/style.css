@@ -185,9 +185,15 @@ select.select{ background-image: none }
 textarea[readonly]{ opacity:.95; }
 
 /* ===== Modal ===== */
+/* Grundzustand: NICHT offen → Browser darf es ausblenden */
 .modal{
   border:0;
+  padding:0;
   background:transparent;
+}
+
+/* Nur wenn open → Fullscreen-Flex-Layout */
+.modal[open]{
   position: fixed;
   inset: 0;
   display:flex;
